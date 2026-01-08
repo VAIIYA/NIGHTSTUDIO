@@ -1,24 +1,36 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { TweetCard } from "@/components/TweetCard";
 import { Post } from "@/types";
-import { getPosts } from "@/lib/server-actions";
+import { getPosts, getFollowingPosts } from "@/lib/server-actions";
 import { Loader2, AlertTriangle } from "lucide-react";
 
 export function FeedView() {
+    const { publicKey, connected } = useWallet();
     const [posts, setPosts] = useState<Post[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [feedType, setFeedType] = useState<'following' | 'all'>('all');
 
     useEffect(() => {
         loadPosts();
-    }, []);
+    }, [connected, publicKey, feedType]);
 
     const loadPosts = async () => {
         try {
             setIsLoading(true);
-            const fetchedPosts = await getPosts(20, 0);
+            let fetchedPosts: Post[];
+
+            if (connected && publicKey && feedType === 'following') {
+                // Show posts from followed users
+                fetchedPosts = await getFollowingPosts(publicKey.toString(), 20, 0);
+            } else {
+                // Show all posts (global feed)
+                fetchedPosts = await getPosts(20, 0);
+            }
+
             setPosts(fetchedPosts);
         } catch (err) {
             setError("Failed to load posts");
@@ -65,6 +77,34 @@ export function FeedView() {
                     </div>
                 </div>
             </div>
+
+            {/* Feed Toggle */}
+            {connected && publicKey && (
+                <div className="border-b border-border p-4">
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setFeedType('following')}
+                            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                                feedType === 'following'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                            }`}
+                        >
+                            Following
+                        </button>
+                        <button
+                            onClick={() => setFeedType('all')}
+                            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                                feedType === 'all'
+                                    ? 'bg-primary text-primary-foreground'
+                                    : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                            }`}
+                        >
+                            All Posts
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Feed */}
             {posts.length === 0 ? (

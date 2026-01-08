@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Plus, Bell, User } from "lucide-react";
+import { Home, Search, Plus, Bell, User } from "lucide-react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,7 @@ export function MobileBottomNav() {
 
   const navItems = [
     { href: "/", icon: Home, label: "Home" },
+    { href: "/search", icon: Search, label: "Search" },
     { href: "/compose", icon: Plus, label: "Compose" },
     { href: "/notifications", icon: Bell, label: "Notifications" },
     {

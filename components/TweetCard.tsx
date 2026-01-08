@@ -2,12 +2,25 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useState, useEffect } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
 import { Heart, MessageCircle, Repeat2, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LockedImage } from "./LockedImage";
+import { CommentsModal } from "./CommentsModal";
+import { ReportButton } from "./ReportButton";
 import { Post } from "@/types";
 import { formatDate, shortenAddress } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import {
+  likePost,
+  unlikePost,
+  hasLikedPost,
+  repostPost,
+  deleteRepost,
+  hasRepostedPost
+} from "@/lib/server-actions";
+import { useToast } from "@/hooks/use-toast";
 
 interface TweetCardProps {
   post: Post;
@@ -15,8 +28,18 @@ interface TweetCardProps {
 }
 
 export function TweetCard({ post, className }: TweetCardProps) {
+  const { publicKey, connected } = useWallet();
+  const { toast } = useToast();
+
+  const [isLiked, setIsLiked] = useState(false);
+  const [isReposted, setIsReposted] = useState(false);
+  const [likesCount, setLikesCount] = useState(post.likes);
+  const [repostsCount, setRepostsCount] = useState(post.reposts);
+  const [isLiking, setIsLiking] = useState(false);
+  const [isReposting, setIsReposting] = useState(false);
+
   const hasImage = post.imageBlurred || post.imageOriginal;
-  const imageUrl = post.imageOriginal 
+  const imageUrl = post.imageOriginal
     ? `https://gateway.lighthouse.storage/ipfs/${post.imageOriginal}`
     : post.imageBlurred
     ? `https://gateway.lighthouse.storage/ipfs/${post.imageBlurred}`
@@ -25,6 +48,90 @@ export function TweetCard({ post, className }: TweetCardProps) {
   const blurredImageUrl = post.imageBlurred
     ? `https://gateway.lighthouse.storage/ipfs/${post.imageBlurred}`
     : imageUrl;
+
+  // Check if user has liked/reposted this post
+  useEffect(() => {
+    if (!connected || !publicKey) return;
+
+    const checkEngagement = async () => {
+      try {
+        const [liked, reposted] = await Promise.all([
+          hasLikedPost(post.id, publicKey.toString()),
+          hasRepostedPost(post.id, publicKey.toString())
+        ]);
+        setIsLiked(liked);
+        setIsReposted(reposted);
+      } catch (error) {
+        console.error("Failed to check engagement:", error);
+      }
+    };
+
+    checkEngagement();
+  }, [connected, publicKey, post.id]);
+
+  const handleLike = async () => {
+    if (!connected || !publicKey) {
+      toast({
+        variant: "destructive",
+        title: "Wallet not connected",
+        description: "Please connect your wallet to like posts",
+      });
+      return;
+    }
+
+    setIsLiking(true);
+    try {
+      if (isLiked) {
+        await unlikePost(post.id, publicKey.toString());
+        setIsLiked(false);
+        setLikesCount(prev => prev - 1);
+      } else {
+        await likePost(post.id, publicKey.toString());
+        setIsLiked(true);
+        setLikesCount(prev => prev + 1);
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to toggle like",
+      });
+    } finally {
+      setIsLiking(false);
+    }
+  };
+
+  const handleRepost = async () => {
+    if (!connected || !publicKey) {
+      toast({
+        variant: "destructive",
+        title: "Wallet not connected",
+        description: "Please connect your wallet to repost",
+      });
+      return;
+    }
+
+    setIsReposting(true);
+    try {
+      if (isReposted) {
+        await deleteRepost(post.id, publicKey.toString());
+        setIsReposted(false);
+        setRepostsCount(prev => prev - 1);
+      } else {
+        await repostPost(post.id, publicKey.toString());
+        setIsReposted(true);
+        setRepostsCount(prev => prev + 1);
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to toggle repost",
+      });
+    } finally {
+      setIsReposting(false);
+    }
+  };
 
   return (
     <article
@@ -89,21 +196,48 @@ export function TweetCard({ post, className }: TweetCardProps) {
 
           {/* Actions */}
           <div className="flex items-center gap-6 mt-3">
-            <Button variant="ghost" size="sm" className="gap-2">
-              <MessageCircle className="h-4 w-4" />
-              <span className="text-xs">{post.comments}</span>
+            <CommentsModal postId={post.id} commentCount={post.comments}>
+              <Button variant="ghost" size="sm" className="gap-2 hover:bg-blue-500/10 hover:text-blue-500">
+                <MessageCircle className="h-4 w-4" />
+                <span className="text-xs">{post.comments}</span>
+              </Button>
+            </CommentsModal>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "gap-2",
+                isReposted
+                  ? "text-green-500 hover:bg-green-500/10"
+                  : "hover:bg-green-500/10 hover:text-green-500"
+              )}
+              onClick={handleRepost}
+              disabled={isReposting}
+            >
+              <Repeat2 className={cn("h-4 w-4", isReposted && "fill-current")} />
+              <span className="text-xs">{repostsCount}</span>
             </Button>
-            <Button variant="ghost" size="sm" className="gap-2">
-              <Repeat2 className="h-4 w-4" />
-              <span className="text-xs">{post.reposts}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "gap-2",
+                isLiked
+                  ? "text-red-500 hover:bg-red-500/10"
+                  : "hover:bg-red-500/10 hover:text-red-500"
+              )}
+              onClick={handleLike}
+              disabled={isLiking}
+            >
+              <Heart className={cn("h-4 w-4", isLiked && "fill-current")} />
+              <span className="text-xs">{likesCount}</span>
             </Button>
-            <Button variant="ghost" size="sm" className="gap-2">
-              <Heart className="h-4 w-4" />
-              <span className="text-xs">{post.likes}</span>
-            </Button>
-            <Button variant="ghost" size="sm" className="gap-2">
-              <Share2 className="h-4 w-4" />
-            </Button>
+            <ReportButton
+              reportedUser={post.author}
+              postId={post.id}
+              variant="ghost"
+              size="sm"
+            />
           </div>
         </div>
       </div>

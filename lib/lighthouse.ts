@@ -41,13 +41,13 @@ export async function uploadImage(file: File): Promise<{ cid: string; url: strin
     }
 
     const data = await response.json();
-    
+
     if (!data || !data.Hash) {
       throw new Error("Failed to upload to Lighthouse: Invalid response");
     }
 
     const cid = data.Hash;
-    
+
     // Construct gateway URL
     const url = `https://gateway.lighthouse.storage/ipfs/${cid}`;
 
@@ -55,6 +55,44 @@ export async function uploadImage(file: File): Promise<{ cid: string; url: strin
   } catch (error) {
     console.error("Lighthouse upload error:", error);
     throw new Error(`Failed to upload image: ${error instanceof Error ? error.message : "Unknown error"}`);
+  }
+}
+
+/**
+ * Upload FormData to Lighthouse (for profile images)
+ * @param formData FormData containing the file
+ * @returns IPFS CID
+ */
+export async function uploadToLighthouse(formData: FormData): Promise<string> {
+  if (!LIGHTHOUSE_API_KEY) {
+    throw new Error("LIGHTHOUSE_STORAGE or NEXT_PUBLIC_LIGHTHOUSE_API_KEY is not configured. Please set it in your .env file.");
+  }
+
+  try {
+    // Upload to Lighthouse.storage
+    const response = await fetch("https://node.lighthouse.storage/api/v0/upload", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LIGHTHOUSE_API_KEY}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Lighthouse upload failed: ${response.status} ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    if (!data || !data.Hash) {
+      throw new Error("Failed to upload to Lighthouse: Invalid response");
+    }
+
+    return data.Hash;
+  } catch (error) {
+    console.error("Lighthouse upload error:", error);
+    throw new Error(`Failed to upload file: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
 }
 

@@ -8,7 +8,7 @@ import { DEFAULT_RPC_URL } from "./constants";
 // - Alchemy: https://solana-mainnet.g.alchemy.com/v2/YOUR_KEY
 // - dRPC: https://lb.drpc.org/ogrq?api_key=YOUR_KEY
 export function getConnection(): Connection {
-  const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || DEFAULT_RPC_URL;
+  const rpcUrl = process.env.NEXT_PUBLIC_RPC_URL || process.env.HELIUS_RPC || DEFAULT_RPC_URL;
   
   return new Connection(rpcUrl, {
     commitment: "confirmed",
