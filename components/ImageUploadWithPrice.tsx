@@ -168,31 +168,38 @@ export function ImageUploadWithPrice({
       {/* Price Input */}
       {previewUrl && (
         <div className="space-y-2">
-          <label htmlFor="price" className="text-sm font-medium">
+          <label htmlFor="price" className="text-sm font-medium flex items-center gap-2">
             Unlock Price (USDC)
+            <span className="text-xs text-muted-foreground font-normal">(Required)</span>
           </label>
-          <input
-            id="price"
-            type="number"
-            step="0.01"
-            min="0"
-            value={price}
-            onChange={(e) => {
-              const newPrice = parseFloat(e.target.value) || 0;
-              setPrice(newPrice);
-              // Notify parent of price change
-              if (imageData) {
-                onUploadComplete({
-                  ...imageData,
-                  price: newPrice,
-                });
-              }
-            }}
-            className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-            placeholder="0.00"
-          />
+          <div className="relative">
+            <input
+              id="price"
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={price}
+              onChange={(e) => {
+                const newPrice = parseFloat(e.target.value) || 0;
+                setPrice(newPrice);
+                // Notify parent of price change
+                if (imageData) {
+                  onUploadComplete({
+                    ...imageData,
+                    price: newPrice,
+                  });
+                }
+              }}
+              className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+              placeholder="0.00"
+              required
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+              USDC
+            </span>
+          </div>
           <p className="text-xs text-muted-foreground">
-            Users will pay this amount in USDC to view the original image
+            Users will pay this amount in USDC to view the original image. Minimum: 0.01 USDC
           </p>
         </div>
       )}

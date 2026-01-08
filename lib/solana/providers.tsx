@@ -5,7 +5,6 @@ import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react
 import { WalletAdapterNetwork } from "@solana/wallet-adapter-base";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import {
-  PhantomWalletAdapter,
   SolflareWalletAdapter,
   LedgerWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
@@ -24,9 +23,9 @@ export const SolanaProviders: FC<SolanaProvidersProps> = ({ children }) => {
   const network = WalletAdapterNetwork.Mainnet;
 
   // Initialize wallets
+  // Note: Phantom is auto-detected via Standard Wallet interface, so we don't need to explicitly include it
   const wallets = useMemo(
     () => [
-      new PhantomWalletAdapter(),
       new SolflareWalletAdapter(),
       new LedgerWalletAdapter(),
     ],

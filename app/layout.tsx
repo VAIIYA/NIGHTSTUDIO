@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Navbar } from "@/components/Navbar";
 import { DesktopSideNav } from "@/components/DesktopSideNav";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { AppShell } from "@/components/AppShell";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,16 +26,9 @@ export default function RootLayout({
     <html lang="en" className="dark">
       <body className={inter.className}>
         <SolanaProviders>
-          <div className="min-h-screen flex flex-col">
-            <Navbar />
-            <div className="flex flex-1">
-              <DesktopSideNav />
-              <main className="flex-1 md:ml-64 pb-16 md:pb-0">
-                {children}
-              </main>
-            </div>
-            <MobileBottomNav />
-          </div>
+          <AppShell>
+            {children}
+          </AppShell>
           <Toaster />
         </SolanaProviders>
       </body>

@@ -76,14 +76,16 @@ cp .env.example .env.local
 
 Edit `.env.local` and fill in:
 
-- `NEXT_PUBLIC_LIGHTHOUSE_API_KEY`: Your Lighthouse.storage API key
+- `MONGODB_URI`: Your MongoDB Atlas connection string (required)
+- `NEXT_PUBLIC_LIGHTHOUSE_STORAGE` or `NEXT_PUBLIC_LIGHTHOUSE_API_KEY`: Your Lighthouse.storage API key
 - `NEXT_PUBLIC_PLATFORM_WALLET`: Your Solana wallet address for receiving platform fees
 - `NEXT_PUBLIC_RPC_URL`: (Optional) Custom RPC endpoint. Default uses public RPC (rate-limited)
 
 **Example `.env.local`:**
 
 ```env
-NEXT_PUBLIC_LIGHTHOUSE_API_KEY=your_lighthouse_api_key_here
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority
+NEXT_PUBLIC_LIGHTHOUSE_STORAGE=your_lighthouse_api_key_here
 NEXT_PUBLIC_PLATFORM_WALLET=YourPlatformWalletAddressHere
 NEXT_PUBLIC_RPC_URL=https://mainnet.helius-rpc.com/?api-key=YOUR_KEY
 ```
@@ -105,7 +107,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 1. Push your code to GitHub
 2. Import the repository in [Vercel](https://vercel.com)
 3. Add environment variables in Vercel dashboard:
-   - `NEXT_PUBLIC_LIGHTHOUSE_API_KEY`
+   - `MONGODB_URI` (required)
+   - `NEXT_PUBLIC_LIGHTHOUSE_STORAGE` or `NEXT_PUBLIC_LIGHTHOUSE_API_KEY`
    - `NEXT_PUBLIC_PLATFORM_WALLET`
    - `NEXT_PUBLIC_RPC_URL` (recommended)
 4. Deploy
@@ -114,7 +117,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 Make sure to set all required environment variables in your deployment platform:
 
-- `NEXT_PUBLIC_LIGHTHOUSE_API_KEY`: Required for image uploads
+- `MONGODB_URI`: Required for database storage
+- `NEXT_PUBLIC_LIGHTHOUSE_STORAGE` or `NEXT_PUBLIC_LIGHTHOUSE_API_KEY`: Required for image uploads
 - `NEXT_PUBLIC_PLATFORM_WALLET`: Required for receiving platform fees
 - `NEXT_PUBLIC_RPC_URL`: **Highly recommended** - use a paid RPC service for production
 
@@ -190,15 +194,16 @@ Make sure to set all required environment variables in your deployment platform:
   - **Original**: Unlocked content (accessible after payment)
 - Both versions are stored on IPFS with unique CIDs
 
-### Database (MVP)
+### Database
 
-The current implementation uses in-memory storage for MVP. For production, replace with:
+The application uses **MongoDB Atlas** for persistent storage:
 
-- **Upstash Redis**: Serverless Redis for fast lookups
-- **Vercel Postgres**: Serverless PostgreSQL
-- Or your preferred database solution
+- **Posts**: Stored in `posts` collection, indexed by `createdAt`, `author`, and `id`
+- **Unlocks**: Stored in `unlocks` collection, indexed by `postId`, `wallet`, and `postId+wallet` combination
+- **Connection**: Uses MongoDB connection pooling for optimal performance
+- **Environment Variable**: `MONGODB_URI` must be set in your environment
 
-Update `lib/server-actions.ts` to use your database.
+The database connection is managed in `lib/mongodb.ts` and all database operations are in `lib/server-actions.ts`.
 
 ## Testing Recommendations
 

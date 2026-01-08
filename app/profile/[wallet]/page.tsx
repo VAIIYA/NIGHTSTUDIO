@@ -17,19 +17,18 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!wallet) return;
 
-    const loadPosts = async () => {
-      try {
-        setIsLoading(true);
-        // In production, filter by author
-        const allPosts = await getPosts(100, 0);
-        const userPosts = allPosts.filter((p) => p.author === wallet);
-        setPosts(userPosts);
-      } catch (error) {
-        console.error("Failed to load posts:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const loadPosts = async () => {
+    try {
+      setIsLoading(true);
+      const { getPostsByAuthor } = await import("@/lib/server-actions");
+      const userPosts = await getPostsByAuthor(wallet, 100, 0);
+      setPosts(userPosts);
+    } catch (error) {
+      console.error("Failed to load posts:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
     loadPosts();
   }, [wallet]);

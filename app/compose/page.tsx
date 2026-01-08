@@ -35,10 +35,6 @@ export default function ComposePage() {
     setPrice(data.price);
   };
 
-  const handlePriceChange = (newPrice: number) => {
-    setPrice(newPrice);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -148,15 +144,17 @@ export default function ComposePage() {
           </p>
         </div>
 
-        {/* Image Upload */}
+        {/* Image Upload with Price */}
         <div>
           <label className="block text-sm font-medium mb-2">
             Add Image (Optional)
           </label>
+          <p className="text-xs text-muted-foreground mb-3">
+            If you upload an image, you can set a USDC unlock price. Users will pay this amount to view the original image.
+          </p>
           <ImageUploadWithPrice
             onUploadComplete={(data) => {
               handleImageUpload(data);
-              // Extract price from the component if needed
             }}
             onRemove={() => {
               setImageData(null);
@@ -165,27 +163,6 @@ export default function ComposePage() {
             initialBlurredUrl={imageData?.blurredUrl}
             initialPrice={price}
           />
-          {imageData && (
-            <div className="mt-2">
-              <label htmlFor="price" className="block text-sm font-medium mb-2">
-                Unlock Price (USDC)
-              </label>
-              <input
-                id="price"
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={price}
-                onChange={(e) => handlePriceChange(parseFloat(e.target.value) || 0)}
-                className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="0.00"
-                required={!!imageData}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Users will pay this amount to view the original image
-              </p>
-            </div>
-          )}
         </div>
 
         {/* Submit Button */}

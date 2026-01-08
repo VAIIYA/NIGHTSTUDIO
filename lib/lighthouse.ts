@@ -1,11 +1,14 @@
 // Lighthouse.storage API
 // Note: lighthouse-sdk package may vary. This uses the REST API directly.
-// Support both NEXT_PUBLIC_LIGHTHOUSE_API_KEY (docs) and LIGHTHOUSE_STORAGE (user provided)
+// Support multiple env var names for flexibility
+// For client-side access in Next.js, use NEXT_PUBLIC_ prefix
 const LIGHTHOUSE_API_KEY =
-  process.env.LIGHTHOUSE_STORAGE || process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY;
+  process.env.NEXT_PUBLIC_LIGHTHOUSE_STORAGE ||
+  process.env.LIGHTHOUSE_STORAGE ||
+  process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY;
 
 if (!LIGHTHOUSE_API_KEY) {
-  console.warn("LIGHTHOUSE_API_KEY not set. Image uploads will fail.");
+  console.warn("LIGHTHOUSE_STORAGE or NEXT_PUBLIC_LIGHTHOUSE_API_KEY not set. Image uploads will fail.");
 }
 
 /**
@@ -15,7 +18,7 @@ if (!LIGHTHOUSE_API_KEY) {
  */
 export async function uploadImage(file: File): Promise<{ cid: string; url: string }> {
   if (!LIGHTHOUSE_API_KEY) {
-    throw new Error("LIGHTHOUSE_API_KEY is not configured. Please set it in your .env file.");
+    throw new Error("LIGHTHOUSE_STORAGE or NEXT_PUBLIC_LIGHTHOUSE_API_KEY is not configured. Please set it in your .env file.");
   }
 
   try {
