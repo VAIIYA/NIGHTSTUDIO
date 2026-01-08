@@ -133,7 +133,7 @@ export default function ComposePage() {
         {/* Content Textarea */}
         <div>
           <label htmlFor="content" className="block text-sm font-medium mb-2">
-            What's happening?
+            What&apos;s happening?
           </label>
           <textarea
             id="content"

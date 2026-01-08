@@ -15,22 +15,22 @@ export default function PostDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (postId) {
-      loadPost();
-    }
-  }, [postId]);
+    if (!postId) return;
 
-  const loadPost = async () => {
-    try {
-      setIsLoading(true);
-      const fetchedPost = await getPost(postId);
-      setPost(fetchedPost);
-    } catch (error) {
-      console.error("Failed to load post:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    const loadPost = async () => {
+      try {
+        setIsLoading(true);
+        const fetchedPost = await getPost(postId);
+        setPost(fetchedPost);
+      } catch (error) {
+        console.error("Failed to load post:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadPost();
+  }, [postId]);
 
   if (isLoading) {
     return (

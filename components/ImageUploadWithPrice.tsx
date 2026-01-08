@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useRef } from "react";
 import { Upload, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -144,10 +145,13 @@ export function ImageUploadWithPrice({
       {previewUrl && (
         <div className="relative">
           <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-border">
-            <img
+            <Image
               src={previewUrl}
               alt="Preview"
-              className="w-full h-full object-cover blur-xl"
+              fill
+              sizes="(max-width: 768px) 100vw, 600px"
+              className="object-cover blur-xl"
+              priority
             />
           </div>
           <Button
