@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { SubscriptionTier } from "@/types";
@@ -14,6 +14,7 @@ import {
   updateSubscriptionTier
 } from "@/lib/server-actions";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import { Plus, Edit, Trash2, Loader2, Crown } from "lucide-react";
 
 export function SubscriptionTiers() {

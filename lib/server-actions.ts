@@ -199,7 +199,7 @@ export async function getOrCreateProfile(wallet: string): Promise<Profile> {
 
   if (!profile) {
     // Create default profile
-    profile = {
+    const newProfile = {
       wallet,
       followers: 0,
       following: 0,
@@ -208,10 +208,11 @@ export async function getOrCreateProfile(wallet: string): Promise<Profile> {
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
-    await profilesCollection.insertOne(profile);
+    await profilesCollection.insertOne(newProfile);
+    profile = await profilesCollection.findOne({ wallet });
   }
 
-  return profile;
+  return profile!;
 }
 
 /**

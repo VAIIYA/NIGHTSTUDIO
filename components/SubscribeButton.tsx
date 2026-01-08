@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { PublicKey } from "@solana/web3.js";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { SubscriptionTier, Subscription } from "@/types";
@@ -13,7 +14,8 @@ import {
 } from "@/lib/server-actions";
 import { useToast } from "@/hooks/use-toast";
 import { Crown, Loader2, CheckCircle, CreditCard } from "lucide-react";
-import { buildUSDCTransferTransaction, getUSDCBalance, USDC_DECIMALS, PLATFORM_FEE_PERCENT } from "@/lib/solana/usdc";
+import { buildUSDCTransferTransaction, getUSDCBalance } from "@/lib/solana/usdc";
+import { PLATFORM_FEE_PERCENT, USDC_DECIMALS } from "@/lib/solana/constants";
 import { getConnection } from "@/lib/solana/connection";
 
 interface SubscribeButtonProps {
@@ -86,9 +88,9 @@ export function SubscribeButton({ creator, children }: SubscribeButtonProps) {
       const transaction = await buildUSDCTransferTransaction(
         connection,
         publicKey,
-        creator, // Send to creator
+        new PublicKey(creator), // Send to creator
         totalCost,
-        process.env.NEXT_PUBLIC_PLATFORM_WALLET // Platform fee wallet
+        process.env.NEXT_PUBLIC_PLATFORM_WALLET ? new PublicKey(process.env.NEXT_PUBLIC_PLATFORM_WALLET) : undefined // Platform fee wallet
       );
 
       // Send transaction
@@ -182,7 +184,7 @@ export function SubscribeButton({ creator, children }: SubscribeButtonProps) {
           <div className="text-center py-8">
             <Crown className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
             <p className="text-muted-foreground">
-              This creator hasn't set up subscription tiers yet.
+              This creator hasn&apos;t set up subscription tiers yet.
             </p>
           </div>
         ) : (
@@ -246,7 +248,7 @@ export function SubscribeButton({ creator, children }: SubscribeButtonProps) {
 
             <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded">
               <p>
-                <strong>Platform Fee:</strong> {PLATFORM_FEE_PERCENT}% of subscription price goes to platform.
+                <strong>NIGHT Platform Fee:</strong> {PLATFORM_FEE_PERCENT}% of subscription price supports the platform.
                 Creator receives: {(100 - PLATFORM_FEE_PERCENT)}% of the subscription cost.
               </p>
             </div>

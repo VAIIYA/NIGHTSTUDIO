@@ -178,7 +178,7 @@ export default function SubscriptionsPage() {
               My Subscriptions
             </h2>
             <p className="text-muted-foreground">
-              Creators you're subscribed to
+              Creators you&apos;re subscribed to
             </p>
           </div>
 

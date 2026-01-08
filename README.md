@@ -180,11 +180,11 @@ Make sure to set all required environment variables in your deployment platform:
 6. Unlock is recorded in database
 7. Original image is displayed
 
-### Platform Fee
+### NIGHT Platform Fee
 
-- Default: 10% of unlock price
-- Fee is split: Platform receives fee, creator receives remainder
-- Platform wallet address: Set via `NEXT_PUBLIC_PLATFORM_WALLET` env var
+- Platform fee: 1% of all payments (unlocks and subscriptions)
+- Fee is split: NIGHT platform receives 1% fee, creator receives 99%
+- Platform wallet address: `EpfmoiBoNFEofbACjZo1vpyqXUy5Fq9ZtPrGVwok5fb3`
 
 ### Image Storage
 

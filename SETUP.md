@@ -17,9 +17,9 @@ Create a `.env.local` file in the root directory with the following variables:
 # Get one at: https://lighthouse.storage
 NEXT_PUBLIC_LIGHTHOUSE_API_KEY=your_lighthouse_api_key_here
 
-# Required: Platform Wallet Address (for receiving fees)
-# This must be a valid Solana mainnet wallet address
-NEXT_PUBLIC_PLATFORM_WALLET=your_platform_wallet_address_here
+# Required: NIGHT Platform Wallet Address (for receiving 1% platform fees)
+# This is the official NIGHT platform wallet address
+NEXT_PUBLIC_PLATFORM_WALLET=EpfmoiBoNFEofbACjZo1vpyqXUy5Fq9ZtPrGVwok5fb3
 
 # Optional: Custom RPC URL (highly recommended for production)
 # Default uses public RPC which is rate-limited

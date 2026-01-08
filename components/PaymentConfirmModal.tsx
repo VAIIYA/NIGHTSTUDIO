@@ -162,7 +162,7 @@ export function PaymentConfirmModal({
             {platformWallet && fee > 0 && (
               <>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Platform Fee ({PLATFORM_FEE_PERCENT}%):</span>
+                  <span className="text-muted-foreground">NIGHT Platform Fee ({PLATFORM_FEE_PERCENT}%):</span>
                   <span className="font-semibold">{fee.toFixed(6)} USDC</span>
                 </div>
                 <div className="flex justify-between text-sm">

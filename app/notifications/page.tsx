@@ -142,7 +142,7 @@ export default function NotificationsPage() {
           <Bell className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
           <p className="text-muted-foreground">No notifications yet</p>
           <p className="text-sm text-muted-foreground mt-2">
-            When people interact with your content, you'll see them here
+            When people interact with your content, you&apos;ll see them here
           </p>
         </div>
       ) : (
