@@ -7,7 +7,6 @@ import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
 import {
   PhantomWalletAdapter,
   SolflareWalletAdapter,
-  BackpackWalletAdapter,
   LedgerWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
 import { getConnection } from "./connection";
@@ -29,7 +28,6 @@ export const SolanaProviders: FC<SolanaProvidersProps> = ({ children }) => {
     () => [
       new PhantomWalletAdapter(),
       new SolflareWalletAdapter(),
-      new BackpackWalletAdapter(),
       new LedgerWalletAdapter(),
     ],
     []
