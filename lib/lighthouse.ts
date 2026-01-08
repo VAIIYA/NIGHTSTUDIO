@@ -1,6 +1,8 @@
 // Lighthouse.storage API
 // Note: lighthouse-sdk package may vary. This uses the REST API directly.
-const LIGHTHOUSE_API_KEY = process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY;
+// Support both NEXT_PUBLIC_LIGHTHOUSE_API_KEY (docs) and LIGHTHOUSE_STORAGE (user provided)
+const LIGHTHOUSE_API_KEY =
+  process.env.LIGHTHOUSE_STORAGE || process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY;
 
 if (!LIGHTHOUSE_API_KEY) {
   console.warn("LIGHTHOUSE_API_KEY not set. Image uploads will fail.");
