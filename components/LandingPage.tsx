@@ -19,7 +19,7 @@ export function LandingPage() {
                 <Logo />
                 <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/70">
                     <a href="#features" className="hover:text-white transition-colors">Features</a>
-                    <a href="#creators" className="hover:text-white transition-colors">Creators</a>
+                    <a href="/creators" className="hover:text-white transition-colors">Creators</a>
                     <a href="/about" className="hover:text-white transition-colors">About</a>
                 </div>
                 <div className="hidden md:block">

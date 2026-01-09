@@ -15,6 +15,11 @@ export const metadata: Metadata = {
   description: "Twitter clone with paid content unlocks on Solana mainnet",
   manifest: "/manifest.json",
   themeColor: "#9945FF",
+  icons: {
+    icon: "/logo.jpg",
+    shortcut: "/logo.jpg",
+    apple: "/logo.jpg",
+  },
 };
 
 export default function RootLayout({

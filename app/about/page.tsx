@@ -18,11 +18,9 @@ export default function AboutPage() {
       {/* Navbar */}
       <header className="relative z-10 container mx-auto px-6 py-6 flex items-center justify-between">
         <Logo />
-        <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/70">
-          <Link href="/" className="hover:text-white transition-colors">Home</Link>
-          <a href="#mission" className="hover:text-white transition-colors">Mission</a>
-          <a href="#community" className="hover:text-white transition-colors">Community</a>
-        </div>
+         <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/70">
+           <Link href="/" className="hover:text-white transition-colors">Home</Link>
+         </div>
         <div className="hidden md:block">
           <WalletMultiButton />
         </div>

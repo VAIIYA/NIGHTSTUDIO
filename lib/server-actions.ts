@@ -273,6 +273,20 @@ export async function searchProfiles(query: string, limit: number = 20): Promise
 }
 
 /**
+ * Get random profiles (for creators page)
+ */
+export async function getRandomProfiles(limit: number = 20): Promise<Profile[]> {
+  const db = await getDatabase();
+  const profilesCollection = db.collection<Profile>(PROFILES_COLLECTION);
+
+  const profiles = await profilesCollection
+    .aggregate([{ $sample: { size: limit } }])
+    .toArray();
+
+  return profiles as Profile[];
+}
+
+/**
  * Update profile stats (followers, following, posts, earnings)
  */
 export async function updateProfileStats(
