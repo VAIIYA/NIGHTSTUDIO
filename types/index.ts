@@ -59,6 +59,8 @@ export interface Comment {
   content: string;
   createdAt: number;
   likes: number;
+  parentCommentId?: string; // For nested replies
+  replyCount?: number; // Number of replies to this comment
 }
 
 export interface Repost {

@@ -2,6 +2,7 @@
 
 import { Unlock, Post, Profile, Follow, Like, Comment, Repost, SubscriptionTier, Subscription, Notification, Report } from "@/types";
 import { getDatabase } from "./mongodb";
+import { validateData, sanitizeString, CreatePostSchema, CreateCommentSchema, CreateLikeSchema, CreateFollowSchema, CreateSubscriptionSchema, CreateReportSchema, CreateUnlockSchema, CreateNotificationSchema, UpdateProfileSchema, CreateProfileSchema, CreateSubscriptionTierSchema } from "./validation";
 
 const POSTS_COLLECTION = "posts";
 const UNLOCKS_COLLECTION = "unlocks";
@@ -25,16 +26,22 @@ export async function createPost(data: {
   imageOriginal?: string;
   imagePrice?: number;
 }): Promise<Post> {
+  // Validate and sanitize input
+  const validatedData = validateData(CreatePostSchema, {
+    ...data,
+    content: sanitizeString(data.content),
+  });
+
   const db = await getDatabase();
   const postsCollection = db.collection<Post>(POSTS_COLLECTION);
 
   const post: Post = {
     id: `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    author: data.author,
-    content: data.content,
-    imageBlurred: data.imageBlurred,
-    imageOriginal: data.imageOriginal,
-    imagePrice: data.imagePrice,
+    author: validatedData.author,
+    content: validatedData.content,
+    imageBlurred: validatedData.imageBlurred,
+    imageOriginal: validatedData.imageOriginal,
+    imagePrice: validatedData.imagePrice,
     createdAt: Date.now(),
     likes: 0,
     comments: 0,
@@ -44,7 +51,7 @@ export async function createPost(data: {
   await postsCollection.insertOne(post);
 
   // Update profile post count
-  await updateProfileStats(data.author, { posts: 1 });
+  await updateProfileStats(validatedData.author, { posts: 1 });
 
   return post;
 }
@@ -95,38 +102,41 @@ export async function getPostsByAuthor(author: string, limit: number = 100, offs
 }
 
 /**
- * Record an unlock transaction
+ * Create an unlock record when a user purchases access to content
  */
-export async function recordUnlock(data: {
+export async function createUnlock(data: {
   postId: string;
   wallet: string;
   txSignature: string;
   amount: number;
 }): Promise<Unlock> {
+  // Validate input
+  const validatedData = validateData(CreateUnlockSchema, data);
+
   const db = await getDatabase();
   const unlocksCollection = db.collection<Unlock>(UNLOCKS_COLLECTION);
 
   const unlock: Unlock = {
     id: `unlock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    postId: data.postId,
-    wallet: data.wallet,
-    txSignature: data.txSignature,
-    amount: data.amount,
+    postId: validatedData.postId,
+    wallet: validatedData.wallet,
+    txSignature: validatedData.txSignature,
+    amount: validatedData.amount,
     createdAt: Date.now(),
   };
 
   await unlocksCollection.insertOne(unlock);
 
   // Get post author to create notification
-  const post = await getPost(data.postId);
-  if (post && post.author !== data.wallet) {
+  const post = await getPost(validatedData.postId);
+  if (post && post.author !== validatedData.wallet) {
     await createNotification({
       recipient: post.author,
-      sender: data.wallet,
+      sender: validatedData.wallet,
       type: 'unlock',
-      postId: data.postId,
-      amount: data.amount,
-      message: `Someone unlocked your content for ${data.amount} USDC`,
+      postId: validatedData.postId,
+      amount: validatedData.amount,
+      message: `Someone unlocked your content for ${validatedData.amount} USDC`,
     });
   }
 
@@ -233,11 +243,19 @@ export async function updateProfile(
   wallet: string,
   updates: Partial<Omit<Profile, 'wallet' | 'followers' | 'following' | 'posts' | 'earnings' | 'createdAt'>>
 ): Promise<Profile> {
+  // Validate and sanitize input
+  const sanitizedUpdates = {
+    ...updates,
+    displayName: updates.displayName ? sanitizeString(updates.displayName) : updates.displayName,
+    bio: updates.bio ? sanitizeString(updates.bio) : updates.bio,
+    username: updates.username, // Already validated in schema if provided
+  };
+
   const db = await getDatabase();
   const profilesCollection = db.collection<Profile>(PROFILES_COLLECTION);
 
   const updateFields = {
-    ...updates,
+    ...sanitizedUpdates,
     updatedAt: Date.now(),
   };
 
@@ -454,13 +472,16 @@ export async function getFollowing(wallet: string, limit: number = 50, offset: n
  * Like a post
  */
 export async function likePost(postId: string, wallet: string): Promise<Like> {
+  // Validate input
+  const validatedData = validateData(CreateLikeSchema, { postId, wallet });
+
   const db = await getDatabase();
   const likesCollection = db.collection<Like>(LIKES_COLLECTION);
 
   // Check if already liked
   const existingLike = await likesCollection.findOne({
-    postId,
-    wallet,
+    postId: validatedData.postId,
+    wallet: validatedData.wallet,
   });
 
   if (existingLike) {
@@ -469,24 +490,24 @@ export async function likePost(postId: string, wallet: string): Promise<Like> {
 
   const like: Like = {
     id: `like_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    postId,
-    wallet,
+    postId: validatedData.postId,
+    wallet: validatedData.wallet,
     createdAt: Date.now(),
   };
 
   await likesCollection.insertOne(like);
 
   // Update post like count
-  await updatePostEngagement(postId, { likes: 1 });
+  await updatePostEngagement(validatedData.postId, { likes: 1 });
 
   // Get post author to create notification
-  const post = await getPost(postId);
-  if (post && post.author !== wallet) {
+  const post = await getPost(validatedData.postId);
+  if (post && post.author !== validatedData.wallet) {
     await createNotification({
       recipient: post.author,
-      sender: wallet,
+      sender: validatedData.wallet,
       type: 'like',
-      postId,
+      postId: validatedData.postId,
       message: 'Someone liked your post',
     });
   }
@@ -547,34 +568,67 @@ export async function getPostLikes(postId: string): Promise<Like[]> {
 /**
  * Add a comment to a post
  */
-export async function addComment(postId: string, author: string, content: string): Promise<Comment> {
+export async function addComment(postId: string, author: string, content: string, parentCommentId?: string): Promise<Comment> {
+  // Validate input
+  const validatedData = validateData(CreateCommentSchema, {
+    postId,
+    author,
+    content: sanitizeString(content),
+  });
+
   const db = await getDatabase();
   const commentsCollection = db.collection<Comment>(COMMENTS_COLLECTION);
 
   const comment: Comment = {
     id: `comment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    postId,
-    author,
-    content: content.trim(),
+    postId: validatedData.postId,
+    author: validatedData.author,
+    content: validatedData.content,
     createdAt: Date.now(),
     likes: 0,
+    ...(parentCommentId && { parentCommentId }),
   };
 
   await commentsCollection.insertOne(comment);
 
-  // Update post comment count
-  await updatePostEngagement(postId, { comments: 1 });
+  // Update post comment count or parent comment reply count
+  if (parentCommentId) {
+    // Update parent comment reply count
+    await commentsCollection.updateOne(
+      { id: parentCommentId },
+      { $inc: { replyCount: 1 } }
+    );
+  } else {
+    // Update post comment count
+    await updatePostEngagement(validatedData.postId, { comments: 1 });
+  }
 
-  // Get post author to create notification
-  const post = await getPost(postId);
-  if (post && post.author !== author) {
-    await createNotification({
-      recipient: post.author,
-      sender: author,
-      type: 'comment',
-      postId,
-      message: 'Someone commented on your post',
-    });
+  // Create notification
+  if (parentCommentId) {
+    // Notify the parent comment author
+    const parentComment = await commentsCollection.findOne({ id: parentCommentId });
+    if (parentComment && parentComment.author !== validatedData.author) {
+      await createNotification({
+        recipient: parentComment.author,
+        sender: validatedData.author,
+        type: 'comment',
+        postId: validatedData.postId,
+        commentId: parentCommentId,
+        message: 'Someone replied to your comment',
+      });
+    }
+  } else {
+    // Notify the post author
+    const post = await getPost(validatedData.postId);
+    if (post && post.author !== validatedData.author) {
+      await createNotification({
+        recipient: post.author,
+        sender: validatedData.author,
+        type: 'comment',
+        postId: validatedData.postId,
+        message: 'Someone commented on your post',
+      });
+    }
   }
 
   return comment;
@@ -588,13 +642,30 @@ export async function getPostComments(postId: string, limit: number = 50, offset
   const commentsCollection = db.collection<Comment>(COMMENTS_COLLECTION);
 
   const comments = await commentsCollection
-    .find({ postId })
+    .find({ postId, parentCommentId: { $exists: false } }) // Only top-level comments
     .sort({ createdAt: -1 })
     .skip(offset)
     .limit(limit)
     .toArray();
 
   return comments;
+}
+
+/**
+ * Get replies for a specific comment
+ */
+export async function getCommentReplies(commentId: string, limit: number = 20, offset: number = 0): Promise<Comment[]> {
+  const db = await getDatabase();
+  const commentsCollection = db.collection<Comment>(COMMENTS_COLLECTION);
+
+  const replies = await commentsCollection
+    .find({ parentCommentId: commentId })
+    .sort({ createdAt: 1 }) // Oldest first for replies
+    .skip(offset)
+    .limit(limit)
+    .toArray();
+
+  return replies;
 }
 
 /**

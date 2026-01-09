@@ -17,7 +17,7 @@ import { buildUSDCTransferTransaction, calculateFee, getUSDCBalance } from "@/li
 import { getConnection } from "@/lib/solana/connection";
 import { PLATFORM_FEE_PERCENT } from "@/lib/solana/constants";
 import { useToast } from "@/hooks/use-toast";
-import { recordUnlock } from "@/lib/server-actions";
+import { createUnlock } from "@/lib/server-actions";
 
 interface PaymentConfirmModalProps {
   open: boolean;
@@ -97,7 +97,7 @@ export function PaymentConfirmModal({
 
       // Record unlock in database
       try {
-        await recordUnlock({
+        await createUnlock({
           postId,
           wallet: publicKey.toString(),
           txSignature: signature,
