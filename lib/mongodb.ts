@@ -48,6 +48,7 @@ export async function getDatabase(): Promise<Db> {
     await db.collection("posts").createIndex({ createdAt: -1 });
     await db.collection("posts").createIndex({ author: 1, createdAt: -1 });
     await db.collection("posts").createIndex({ id: 1 }, { unique: true });
+    await db.collection("posts").createIndex({ content: 'text' });
 
     // Profiles collection indexes
     await db.collection("profiles").createIndex({ wallet: 1 }, { unique: true });
@@ -61,6 +62,7 @@ export async function getDatabase(): Promise<Db> {
     // Comments collection indexes
     await db.collection("comments").createIndex({ postId: 1, createdAt: -1 });
     await db.collection("comments").createIndex({ author: 1, createdAt: -1 });
+    await db.collection("comments").createIndex({ content: 'text' });
 
     // Follows collection indexes
     await db.collection("follows").createIndex({ follower: 1, following: 1 }, { unique: true });

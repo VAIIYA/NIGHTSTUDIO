@@ -5,6 +5,8 @@ export interface Post {
   imageBlurred?: string; // IPFS CID for blurred image
   imageOriginal?: string; // IPFS CID for original image
   imagePrice?: number; // Price in USDC (e.g., 1.5)
+  ipnsBlurred?: string; // IPNS URL for blurred image backup
+  ipnsOriginal?: string; // IPNS URL for original image backup
   createdAt: number; // Unix timestamp
   likes: number;
   comments: number;
@@ -27,6 +29,8 @@ export interface Profile {
   bio?: string;
   avatar?: string; // IPFS CID
   banner?: string; // IPFS CID
+  ipnsAvatar?: string; // IPNS URL for avatar backup
+  ipnsBanner?: string; // IPNS URL for banner backup
   website?: string;
   location?: string;
   verified?: boolean;

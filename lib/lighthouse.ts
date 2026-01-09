@@ -14,22 +14,105 @@ const STORACHA_API_KEY =
   process.env.LIGHTHOUSE_STORAGE ||
   process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY;
 
+// IPNS Backup Configuration
+const IPFS_API_URL = process.env.NEXT_PUBLIC_IPFS_API_URL || 'http://localhost:5001';
+const IPNS_KEY_NAME = process.env.NEXT_PUBLIC_IPNS_KEY_NAME || 'nightstudio';
+const ENABLE_IPNS_BACKUP = process.env.NEXT_PUBLIC_ENABLE_IPNS_BACKUP === 'true';
+
 // Check if at least one API key is configured
 if (!NFT_STORAGE_API_KEY && !STORACHA_API_KEY) {
   console.warn("No IPFS storage API key configured. Image uploads will fail.");
   console.warn("Set NEXT_PUBLIC_NFT_STORAGE_API_KEY or NEXT_PUBLIC_STORACHA_API_KEY in Vercel environment variables.");
 }
 
+// IPNS Configuration Guide
+console.log("📚 IPNS Backup Setup:");
+console.log("1. Install IPFS Desktop: https://docs.ipfs.tech/install/ipfs-desktop/");
+console.log("2. Enable HTTP API in IPFS Desktop settings");
+console.log("3. Set environment variables:");
+console.log("   - NEXT_PUBLIC_ENABLE_IPNS_BACKUP=true");
+console.log("   - NEXT_PUBLIC_IPFS_API_URL=http://localhost:5001 (default)");
+console.log("   - NEXT_PUBLIC_IPNS_KEY_NAME=nightstudio (your IPNS key name)");
+console.log("4. Test connection: window.testIPNSConnection() in browser console");
+
+// Log IPNS configuration
+console.log("🔑 IPNS Backup enabled:", ENABLE_IPNS_BACKUP);
+console.log("🌐 IPFS API URL:", IPFS_API_URL);
+console.log("🔑 IPNS Key Name:", IPNS_KEY_NAME);
+
 // Log API key status for debugging (without exposing the key)
 console.log("🔑 NFT.Storage API Key configured:", !!NFT_STORAGE_API_KEY, NFT_STORAGE_API_KEY?.substring(0, 10) + "...");
 console.log("🔑 Storacha API Key configured:", !!STORACHA_API_KEY, STORACHA_API_KEY?.substring(0, 10) + "...");
 
 /**
- * Upload a file to IPFS via Lighthouse.storage
- * @param file File to upload
- * @returns IPFS CID and gateway URL
+ * Upload file to IPNS for backup/redundancy
+ * @param file The file to upload
+ * @param existingCid Optional existing CID to pin and publish to IPNS
+ * @returns IPNS key/name or undefined if failed
  */
-export async function uploadImage(file: File): Promise<{ cid: string; url: string }> {
+export async function uploadToIPNS(file: File, existingCid?: string): Promise<string | null> {
+  try {
+    let cid = existingCid;
+
+    // If no existing CID, upload the file first
+    if (!cid) {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      // Upload to IPFS first
+      const ipfsResponse = await fetch(`${IPFS_API_URL}/api/v0/add`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!ipfsResponse.ok) {
+        throw new Error(`IPFS upload failed: ${ipfsResponse.status}`);
+      }
+
+      const ipfsData = await ipfsResponse.json();
+      cid = ipfsData.Hash;
+    }
+
+    if (!cid) {
+      throw new Error("No CID available for IPNS publishing");
+    }
+
+    // Create IPNS key if it doesn't exist
+    try {
+      await fetch(`${IPFS_API_URL}/api/v0/key/gen?arg=${IPNS_KEY_NAME}&type=rsa&size=2048`, {
+        method: 'POST',
+      });
+      console.log(`📝 Created new IPNS key: ${IPNS_KEY_NAME}`);
+    } catch (keyError) {
+      // Key might already exist, that's okay
+      console.log(`ℹ️ IPNS key ${IPNS_KEY_NAME} already exists or creation failed`);
+    }
+
+    // Publish to IPNS
+    const publishResponse = await fetch(`${IPFS_API_URL}/api/v0/name/publish?arg=${cid}&key=${IPNS_KEY_NAME}`, {
+      method: 'POST',
+    });
+
+    if (!publishResponse.ok) {
+      throw new Error(`IPNS publish failed: ${publishResponse.status}`);
+    }
+
+    const publishData = await publishResponse.json();
+    console.log("📢 Published to IPNS:", publishData);
+
+    return publishData.Name || IPNS_KEY_NAME;
+  } catch (error) {
+    console.error("IPNS upload error:", error);
+    return null;
+  }
+}
+
+/**
+ * Upload a file to IPFS via Lighthouse.storage with optional IPNS backup
+ * @param file File to upload
+ * @returns IPFS CID, gateway URL, and optional IPNS URL
+ */
+export async function uploadImage(file: File): Promise<{ cid: string; url: string; ipnsUrl?: string }> {
   if (!NFT_STORAGE_API_KEY && !STORACHA_API_KEY) {
     throw new Error("No IPFS storage API key configured. Set NEXT_PUBLIC_NFT_STORAGE_API_KEY or NEXT_PUBLIC_STORACHA_API_KEY");
   }
@@ -39,13 +122,29 @@ export async function uploadImage(file: File): Promise<{ cid: string; url: strin
     const formData = new FormData();
     formData.append("file", file);
 
-    // Use the same multi-provider logic
+    // Use the same multi-provider logic for primary storage
     const cid = await uploadToLighthouse(formData);
 
     // Construct gateway URL - using IPFS gateway
     const url = `https://ipfs.io/ipfs/${cid}`;
 
-    return { cid, url };
+    // Attempt IPNS backup if enabled
+    let ipnsUrl: string | undefined;
+    if (ENABLE_IPNS_BACKUP) {
+      try {
+        console.log("📤 Attempting IPNS backup...");
+        const ipnsResult = await uploadToIPNS(file, cid);
+        if (ipnsResult) {
+          ipnsUrl = `https://ipfs.io/ipns/${ipnsResult}`;
+          console.log("✅ IPNS backup successful:", ipnsUrl);
+        }
+      } catch (ipnsError) {
+        console.warn("⚠️ IPNS backup failed, but primary upload succeeded:", ipnsError);
+        // Don't fail the whole upload if IPNS backup fails
+      }
+    }
+
+    return { cid, url, ipnsUrl };
   } catch (error) {
     console.error("IPFS upload error:", error);
     throw new Error(`Failed to upload image: ${error instanceof Error ? error.message : "Unknown error"}`);
@@ -379,9 +478,68 @@ export async function uploadWithLighthouseSDK(file: File): Promise<string> {
   return uploadToLighthouse(formData);
 }
 
+// Test IPNS connection
+export async function testIPNSConnection() {
+  try {
+    console.log("🧪 Testing IPNS connection...");
+    console.log("🌐 IPFS API URL:", IPFS_API_URL);
+    console.log("🔑 IPNS Key Name:", IPNS_KEY_NAME);
+    console.log("📤 IPNS Backup enabled:", ENABLE_IPNS_BACKUP);
+
+    if (!ENABLE_IPNS_BACKUP) {
+      console.log("ℹ️ IPNS backup is disabled");
+      return { success: false, disabled: true };
+    }
+
+    // Test IPFS API connection
+    try {
+      const response = await fetch(`${IPFS_API_URL}/api/v0/id`, {
+        signal: AbortSignal.timeout(5000),
+      });
+
+      if (!response.ok) {
+        throw new Error(`IPFS API responded with status ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("✅ IPFS API connected:", data.ID);
+
+      // Test IPNS key
+      const keyResponse = await fetch(`${IPFS_API_URL}/api/v0/key/list`, {
+        signal: AbortSignal.timeout(5000),
+      });
+
+      if (keyResponse.ok) {
+        const keyData = await keyResponse.json();
+        const keyExists = keyData.Keys?.some((key: any) => key.Name === IPNS_KEY_NAME);
+        console.log(`📝 IPNS key "${IPNS_KEY_NAME}" ${keyExists ? 'exists' : 'does not exist'}`);
+
+        return {
+          success: true,
+          ipfsConnected: true,
+          ipnsKeyExists: keyExists,
+          ipfsId: data.ID,
+        };
+      }
+
+    } catch (apiError) {
+      console.error("❌ IPFS API connection failed:", apiError);
+      return {
+        success: false,
+        error: apiError instanceof Error ? apiError.message : String(apiError),
+      };
+    }
+
+  } catch (error) {
+    console.error("❌ IPNS test failed:", error);
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 // Make it available globally for debugging
 if (typeof window !== 'undefined') {
   (window as any).testLighthouseConnection = testLighthouseConnection;
   (window as any).uploadWithLighthouseSDK = uploadWithLighthouseSDK;
+  (window as any).testIPNSConnection = testIPNSConnection;
 }
 

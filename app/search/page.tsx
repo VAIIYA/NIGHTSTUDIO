@@ -1,226 +1,428 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { TweetCard } from "@/components/TweetCard";
-import { FollowButton } from "@/components/FollowButton";
-import { SubscribeButton } from "@/components/SubscribeButton";
-import { Post, Profile } from "@/types";
-import { searchProfiles } from "@/lib/server-actions";
-import { shortenAddress, formatDate } from "@/lib/utils";
-import { Search, Users, FileText, Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Search, User, FileText, MessageCircle, Loader2 } from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
+import { formatDate, shortenAddress } from "@/lib/utils";
+
+interface SearchResult {
+  query: string;
+  type: string;
+  results: {
+    posts?: any[];
+    profiles?: any[];
+    comments?: any[];
+  };
+  meta: {
+    limit: number;
+    offset: number;
+    hasMore: boolean;
+  };
+}
 
 export default function SearchPage() {
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const initialQuery = searchParams.get('q') || '';
-
-  const [query, setQuery] = useState(initialQuery);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const searchParams = useSearchParams();
+  const [query, setQuery] = useState(searchParams.get("q") || "");
+  const [activeTab, setActiveTab] = useState(searchParams.get("type") || "all");
+  const [results, setResults] = useState<SearchResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  useEffect(() => {
-    if (initialQuery) {
-      performSearch(initialQuery);
+  const performSearch = async (searchQuery: string, type: string = "all") => {
+    if (!searchQuery.trim() || searchQuery.trim().length < 2) {
+      return;
     }
-  }, [initialQuery]);
-
-  const performSearch = async (searchQuery: string) => {
-    if (!searchQuery.trim()) return;
 
     setIsLoading(true);
     try {
-      // Update URL
-      const params = new URLSearchParams();
-      params.set('q', searchQuery);
-      router.replace(`/search?${params.toString()}`);
-
-      // Search profiles (we'll need to add post search to server actions)
-      const foundProfiles = await searchProfiles(searchQuery, 20);
-      setProfiles(foundProfiles);
-
-      // For now, we'll just search profiles. Post search would need to be added to server actions
-      setPosts([]);
-
-      setHasSearched(true);
+      const response = await fetch(`/api/search?q=${encodeURIComponent(searchQuery)}&type=${type}&limit=20`);
+      if (response.ok) {
+        const data = await response.json();
+        setResults(data.data);
+      } else {
+        console.error("Search failed:", response.statusText);
+      }
     } catch (error) {
-      console.error("Search failed:", error);
+      console.error("Search error:", error);
     } finally {
       setIsLoading(false);
+      setHasSearched(true);
     }
   };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    performSearch(query);
+    if (query.trim()) {
+      router.push(`/search?q=${encodeURIComponent(query)}&type=${activeTab}`);
+      performSearch(query, activeTab);
+    }
   };
 
-  const handleProfileClick = (wallet: string) => {
-    router.push(`/profile/${wallet}`);
+  // Perform search when URL params change
+  useEffect(() => {
+    const q = searchParams.get("q");
+    const type = searchParams.get("type") || "all";
+
+    if (q && q !== query) {
+      setQuery(q);
+      setActiveTab(type);
+      performSearch(q, type);
+    }
+  }, [searchParams, query]);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    if (query.trim()) {
+      router.push(`/search?q=${encodeURIComponent(query)}&type=${value}`);
+      performSearch(query, value);
+    }
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      {/* Search Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Search</h1>
-        <form onSubmit={handleSearch} className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search for users, posts, or hashtags..."
-              className="pl-10"
-            />
+    <div className="min-h-screen bg-black text-white">
+      {/* Header */}
+      <div className="border-b border-white/10 py-8">
+        <div className="max-w-4xl mx-auto px-6">
+          <div className="text-center mb-8">
+            <h1 className="text-4xl md:text-5xl font-bold mb-4">
+              Search NightStudio
+            </h1>
+            <p className="text-xl text-zinc-400">
+              Discover creators, posts, and conversations
+            </p>
           </div>
-          <Button type="submit" disabled={isLoading || !query.trim()}>
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <Search className="h-4 w-4 mr-2" />
-            )}
-            Search
-          </Button>
-        </form>
+
+          {/* Search Form */}
+          <form onSubmit={handleSearch} className="max-w-2xl mx-auto">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                <Input
+                  type="text"
+                  placeholder="Search for creators, posts, comments..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="pl-10 bg-zinc-900/50 border-zinc-700 text-white placeholder:text-zinc-400"
+                />
+              </div>
+              <Button type="submit" disabled={isLoading || !query.trim()}>
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
+          </form>
+        </div>
       </div>
 
-      {/* Search Results */}
-      {hasSearched && (
-        <Tabs defaultValue="users" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="users" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Users ({profiles.length})
-            </TabsTrigger>
-            <TabsTrigger value="posts" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Posts ({posts.length})
-            </TabsTrigger>
-          </TabsList>
+      {/* Results */}
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        {results && (
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+            <TabsList className="grid w-full grid-cols-4 bg-zinc-900/50">
+              <TabsTrigger value="all" className="data-[state=active]:bg-[#9945FF]">
+                All
+              </TabsTrigger>
+              <TabsTrigger value="posts" className="data-[state=active]:bg-[#9945FF]">
+                Posts
+              </TabsTrigger>
+              <TabsTrigger value="profiles" className="data-[state=active]:bg-[#9945FF]">
+                Creators
+              </TabsTrigger>
+              <TabsTrigger value="comments" className="data-[state=active]:bg-[#9945FF]">
+                Comments
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Users Tab */}
-          <TabsContent value="users">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : profiles.length === 0 ? (
-              <div className="text-center py-12">
-                <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">No users found</h3>
-                <p className="text-muted-foreground">
-                  Try searching for a different username or display name
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {profiles.map((profile) => (
-                  <div
-                    key={profile.wallet}
-                    className="border border-border rounded-lg p-6 hover:bg-accent/5 transition-colors cursor-pointer"
-                    onClick={() => handleProfileClick(profile.wallet)}
-                  >
-                    <div className="flex items-start gap-4">
-                      {/* Avatar */}
-                      <div className="h-16 w-16 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                        {profile.avatar ? (
-                          <img
-                            src={`https://ipfs.io/ipfs/${profile.avatar}`}
-                            alt="Profile"
-                            className="h-full w-full rounded-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-lg font-mono">
-                            {shortenAddress(profile.wallet, 2)}
-                          </span>
-                        )}
+            <TabsContent value="all" className="mt-6">
+              <div className="space-y-6">
+                {results.results.posts && results.results.posts.length > 0 && (
+                  <Card className="bg-zinc-900/50 border-zinc-700">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-[#9945FF]">
+                        <FileText className="h-5 w-5" />
+                        Posts ({results.results.posts.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {results.results.posts.slice(0, 5).map((post: any) => (
+                          <Link
+                            key={post.id}
+                            href={`/profile/${post.author}`}
+                            className="block p-3 rounded-lg hover:bg-zinc-800/50 transition-colors"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                                <span className="text-xs font-mono">
+                                  {shortenAddress(post.author, 2)}
+                                </span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-zinc-300 line-clamp-2">
+                                  {post.content}
+                                </p>
+                                <p className="text-xs text-zinc-500 mt-1">
+                                  {formatDate(post.createdAt)}
+                                </p>
+                              </div>
+                            </div>
+                          </Link>
+                        ))}
                       </div>
+                    </CardContent>
+                  </Card>
+                )}
 
-                      {/* Profile Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-lg truncate">
-                            {profile.displayName || profile.username || shortenAddress(profile.wallet)}
-                          </h3>
-                          {profile.verified && (
-                            <span className="text-primary text-sm">✓</span>
-                          )}
-                        </div>
-
-                        {profile.username && (
-                          <p className="text-muted-foreground mb-2">@{profile.username}</p>
-                        )}
-
-                        {profile.bio && (
-                          <p className="text-muted-foreground mb-3 line-clamp-2">
-                            {profile.bio}
-                          </p>
-                        )}
-
-                        {/* Stats */}
-                        <div className="flex gap-6 text-sm text-muted-foreground mb-4">
-                          <span>{profile.followers} followers</span>
-                          <span>{profile.following} following</span>
-                          <span>{profile.posts} posts</span>
-                          {profile.earnings > 0 && (
-                            <span>{profile.earnings} USDC earned</span>
-                          )}
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex gap-2">
-                          <FollowButton targetWallet={profile.wallet} />
-                          <SubscribeButton creator={profile.wallet} />
-                        </div>
+                {results.results.profiles && results.results.profiles.length > 0 && (
+                  <Card className="bg-zinc-900/50 border-zinc-700">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-[#14F195]">
+                        <User className="h-5 w-5" />
+                        Creators ({results.results.profiles.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {results.results.profiles.slice(0, 6).map((profile: any) => (
+                          <Link
+                            key={profile.wallet}
+                            href={`/profile/${profile.wallet}`}
+                            className="flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-800/50 transition-colors"
+                          >
+                            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                              {profile.avatar ? (
+                                <Image
+                                  src={`https://ipfs.io/ipfs/${profile.avatar}`}
+                                  alt={profile.displayName || profile.username || "Creator"}
+                                  width={40}
+                                  height={40}
+                                  className="h-full w-full rounded-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-xs font-mono">
+                                  {shortenAddress(profile.wallet, 2)}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">
+                                {profile.displayName || profile.username || shortenAddress(profile.wallet)}
+                              </p>
+                              {profile.username && (
+                                <p className="text-xs text-zinc-400">@{profile.username}</p>
+                              )}
+                              {profile.bio && (
+                                <p className="text-xs text-zinc-500 line-clamp-1 mt-1">
+                                  {profile.bio}
+                                </p>
+                              )}
+                            </div>
+                          </Link>
+                        ))}
                       </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </TabsContent>
+                    </CardContent>
+                  </Card>
+                )}
 
-          {/* Posts Tab */}
-          <TabsContent value="posts">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                {results.results.comments && results.results.comments.length > 0 && (
+                  <Card className="bg-zinc-900/50 border-zinc-700">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-blue-500">
+                        <MessageCircle className="h-5 w-5" />
+                        Comments ({results.results.comments.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {results.results.comments.slice(0, 5).map((comment: any) => (
+                          <Link
+                            key={comment.id}
+                            href={`/profile/${comment.author}`}
+                            className="block p-3 rounded-lg hover:bg-zinc-800/50 transition-colors"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                                <span className="text-xs font-mono">
+                                  {shortenAddress(comment.author, 2)}
+                                </span>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-zinc-300 line-clamp-2">
+                                  {comment.content}
+                                </p>
+                                <p className="text-xs text-zinc-500 mt-1">
+                                  {formatDate(comment.createdAt)}
+                                </p>
+                              </div>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
-            ) : posts.length === 0 ? (
-              <div className="text-center py-12">
-                <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-semibold mb-2">No posts found</h3>
-                <p className="text-muted-foreground">
-                  Try searching for different keywords or hashtags
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {posts.map((post) => (
-                  <TweetCard key={post.id} post={post} />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      )}
+            </TabsContent>
 
-      {/* Initial State */}
-      {!hasSearched && !isLoading && (
-        <div className="text-center py-12">
-          <Search className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-          <h3 className="text-lg font-semibold mb-2">Search NightStudio</h3>
-          <p className="text-muted-foreground">
-            Find users, posts, and trending content
-          </p>
-        </div>
-      )}
+            <TabsContent value="posts" className="mt-6">
+              {/* Posts only */}
+              {results.results.posts && results.results.posts.length > 0 ? (
+                <div className="space-y-4">
+                  {results.results.posts.map((post: any) => (
+                    <Card key={post.id} className="bg-zinc-900/50 border-zinc-700">
+                      <CardContent className="p-6">
+                        <Link href={`/profile/${post.author}`} className="hover:opacity-80 transition-opacity">
+                          <div className="flex items-start gap-4">
+                            <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                              <span className="text-sm font-mono">
+                                {shortenAddress(post.author, 2)}
+                              </span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="font-semibold">
+                                  {shortenAddress(post.author)}
+                                </span>
+                                <span className="text-zinc-500 text-sm">
+                                  · {formatDate(post.createdAt)}
+                                </span>
+                              </div>
+                              <p className="text-zinc-300 mb-3">{post.content}</p>
+                              <div className="flex items-center gap-4 text-sm text-zinc-500">
+                                <span>{post.likes} likes</span>
+                                <span>{post.comments} comments</span>
+                              </div>
+                            </div>
+                          </div>
+                        </Link>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <FileText className="h-12 w-12 mx-auto mb-4 text-zinc-600" />
+                  <p className="text-zinc-400">No posts found matching your search.</p>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="profiles" className="mt-6">
+              {/* Profiles only */}
+              {results.results.profiles && results.results.profiles.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {results.results.profiles.map((profile: any) => (
+                    <Card key={profile.wallet} className="bg-zinc-900/50 border-zinc-700">
+                      <CardContent className="p-6">
+                        <Link href={`/profile/${profile.wallet}`} className="block hover:opacity-80 transition-opacity">
+                          <div className="flex items-center gap-4 mb-4">
+                            <div className="h-16 w-16 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                              {profile.avatar ? (
+                                <Image
+                                  src={`https://ipfs.io/ipfs/${profile.avatar}`}
+                                  alt={profile.displayName || profile.username || "Creator"}
+                                  width={64}
+                                  height={64}
+                                  className="h-full w-full rounded-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-lg font-mono">
+                                  {shortenAddress(profile.wallet, 2)}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-lg truncate">
+                                {profile.displayName || profile.username || shortenAddress(profile.wallet)}
+                              </h3>
+                              {profile.username && (
+                                <p className="text-zinc-400">@{profile.username}</p>
+                              )}
+                            </div>
+                          </div>
+                          {profile.bio && (
+                            <p className="text-zinc-300 text-sm line-clamp-3 mb-4">
+                              {profile.bio}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-4 text-sm text-zinc-500">
+                            <span>{profile.followers || 0} followers</span>
+                            <span>{profile.posts || 0} posts</span>
+                          </div>
+                        </Link>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <User className="h-12 w-12 mx-auto mb-4 text-zinc-600" />
+                  <p className="text-zinc-400">No creators found matching your search.</p>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="comments" className="mt-6">
+              {/* Comments only */}
+              {results.results.comments && results.results.comments.length > 0 ? (
+                <div className="space-y-4">
+                  {results.results.comments.map((comment: any) => (
+                    <Card key={comment.id} className="bg-zinc-900/50 border-zinc-700">
+                      <CardContent className="p-6">
+                        <Link href={`/profile/${comment.author}`} className="block hover:opacity-80 transition-opacity">
+                          <div className="flex items-start gap-4">
+                            <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                              <span className="text-sm font-mono">
+                                {shortenAddress(comment.author, 2)}
+                              </span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="font-semibold">
+                                  {shortenAddress(comment.author)}
+                                </span>
+                                <span className="text-zinc-500 text-sm">
+                                  · {formatDate(comment.createdAt)}
+                                </span>
+                              </div>
+                              <p className="text-zinc-300 mb-3">{comment.content}</p>
+                              <span className="inline-block px-2 py-1 bg-zinc-700 text-xs rounded-full">
+                                Comment on post
+                              </span>
+                            </div>
+                          </div>
+                        </Link>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <MessageCircle className="h-12 w-12 mx-auto mb-4 text-zinc-600" />
+                  <p className="text-zinc-400">No comments found matching your search.</p>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        )}
+
+        {hasSearched && !results && !isLoading && (
+          <div className="text-center py-12">
+            <Search className="h-12 w-12 mx-auto mb-4 text-zinc-600" />
+            <p className="text-zinc-400">Start typing to search for creators, posts, and comments.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

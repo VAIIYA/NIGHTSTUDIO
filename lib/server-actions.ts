@@ -3,6 +3,7 @@
 import { Unlock, Post, Profile, Follow, Like, Comment, Repost, SubscriptionTier, Subscription, Notification, Report } from "@/types";
 import { getDatabase } from "./mongodb";
 import { validateData, sanitizeString, CreatePostSchema, CreateCommentSchema, CreateLikeSchema, CreateFollowSchema, CreateSubscriptionSchema, CreateReportSchema, CreateUnlockSchema, CreateNotificationSchema, UpdateProfileSchema, CreateProfileSchema, CreateSubscriptionTierSchema } from "./validation";
+import { broadcastToUser, broadcastToRoom } from "./websocket";
 
 const POSTS_COLLECTION = "posts";
 const UNLOCKS_COLLECTION = "unlocks";
@@ -25,6 +26,8 @@ export async function createPost(data: {
   imageBlurred?: string;
   imageOriginal?: string;
   imagePrice?: number;
+  ipnsBlurred?: string;
+  ipnsOriginal?: string;
 }): Promise<Post> {
   // Validate and sanitize input
   const validatedData = validateData(CreatePostSchema, {
@@ -42,6 +45,8 @@ export async function createPost(data: {
     imageBlurred: validatedData.imageBlurred,
     imageOriginal: validatedData.imageOriginal,
     imagePrice: validatedData.imagePrice,
+    ipnsBlurred: data.ipnsBlurred,
+    ipnsOriginal: data.ipnsOriginal,
     createdAt: Date.now(),
     likes: 0,
     comments: 0,
@@ -249,6 +254,8 @@ export async function updateProfile(
     displayName: updates.displayName ? sanitizeString(updates.displayName) : updates.displayName,
     bio: updates.bio ? sanitizeString(updates.bio) : updates.bio,
     username: updates.username, // Already validated in schema if provided
+    ipnsAvatar: updates.ipnsAvatar,
+    ipnsBanner: updates.ipnsBanner,
   };
 
   const db = await getDatabase();
@@ -273,7 +280,7 @@ export async function updateProfile(
 /**
  * Get profiles by usernames (for search)
  */
-export async function searchProfiles(query: string, limit: number = 20): Promise<Profile[]> {
+export async function searchProfiles(query: string, limit: number = 20, offset: number = 0): Promise<Profile[]> {
   const db = await getDatabase();
   const profilesCollection = db.collection<Profile>(PROFILES_COLLECTION);
 
@@ -282,8 +289,10 @@ export async function searchProfiles(query: string, limit: number = 20): Promise
       $or: [
         { username: { $regex: query, $options: 'i' } },
         { displayName: { $regex: query, $options: 'i' } },
+        { bio: { $regex: query, $options: 'i' } },
       ]
     })
+    .skip(offset)
     .limit(limit)
     .toArray();
 
@@ -302,6 +311,46 @@ export async function getRandomProfiles(limit: number = 20): Promise<Profile[]> 
     .toArray();
 
   return profiles as Profile[];
+}
+
+/**
+ * Search posts by content
+ */
+export async function searchPosts(query: string, limit: number = 20, offset: number = 0): Promise<Post[]> {
+  const db = await getDatabase();
+  const postsCollection = db.collection<Post>(POSTS_COLLECTION);
+
+  const posts = await postsCollection
+    .find({
+      $text: { $search: query }
+    })
+    .sort({ score: { $meta: 'textScore' } })
+    .skip(offset)
+    .limit(limit)
+    .toArray();
+
+  return posts;
+}
+
+
+
+/**
+ * Search comments by content
+ */
+export async function searchComments(query: string, limit: number = 20, offset: number = 0): Promise<Comment[]> {
+  const db = await getDatabase();
+  const commentsCollection = db.collection<Comment>(COMMENTS_COLLECTION);
+
+  const comments = await commentsCollection
+    .find({
+      $text: { $search: query }
+    })
+    .sort({ score: { $meta: 'textScore' } })
+    .skip(offset)
+    .limit(limit)
+    .toArray();
+
+  return comments;
 }
 
 /**
@@ -510,6 +559,30 @@ export async function likePost(postId: string, wallet: string): Promise<Like> {
       postId: validatedData.postId,
       message: 'Someone liked your post',
     });
+
+    // Broadcast real-time like notification to post author
+    broadcastToUser(post.author, {
+      type: 'notification',
+      userId: post.author,
+      data: {
+        type: 'like',
+        postId: validatedData.postId,
+        sender: validatedData.wallet,
+        message: 'Someone liked your post',
+        timestamp: Date.now(),
+      },
+    });
+
+    // Broadcast to post room for live updates
+    broadcastToRoom(`post_${validatedData.postId}`, {
+      type: 'like',
+      roomId: `post_${validatedData.postId}`,
+      data: {
+        postId: validatedData.postId,
+        liker: validatedData.wallet,
+        action: 'like',
+      },
+    });
   }
 
   return like;
@@ -603,7 +676,7 @@ export async function addComment(postId: string, author: string, content: string
     await updatePostEngagement(validatedData.postId, { comments: 1 });
   }
 
-  // Create notification
+  // Create notification and broadcast real-time updates
   if (parentCommentId) {
     // Notify the parent comment author
     const parentComment = await commentsCollection.findOne({ id: parentCommentId });
@@ -615,6 +688,20 @@ export async function addComment(postId: string, author: string, content: string
         postId: validatedData.postId,
         commentId: parentCommentId,
         message: 'Someone replied to your comment',
+      });
+
+      // Broadcast real-time reply notification
+      broadcastToUser(parentComment.author, {
+        type: 'notification',
+        userId: parentComment.author,
+        data: {
+          type: 'comment',
+          postId: validatedData.postId,
+          commentId: parentCommentId,
+          sender: validatedData.author,
+          message: 'Someone replied to your comment',
+          timestamp: Date.now(),
+        },
       });
     }
   } else {
@@ -628,8 +715,32 @@ export async function addComment(postId: string, author: string, content: string
         postId: validatedData.postId,
         message: 'Someone commented on your post',
       });
+
+      // Broadcast real-time comment notification
+      broadcastToUser(post.author, {
+        type: 'notification',
+        userId: post.author,
+        data: {
+          type: 'comment',
+          postId: validatedData.postId,
+          sender: validatedData.author,
+          message: 'Someone commented on your post',
+          timestamp: Date.now(),
+        },
+      });
     }
   }
+
+  // Broadcast to post room for live comment updates
+  broadcastToRoom(`post_${validatedData.postId}`, {
+    type: 'comment',
+    roomId: `post_${validatedData.postId}`,
+    data: {
+      postId: validatedData.postId,
+      comment: comment,
+      action: 'new_comment',
+    },
+  });
 
   return comment;
 }

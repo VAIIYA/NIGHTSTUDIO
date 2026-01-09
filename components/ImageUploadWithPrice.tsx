@@ -13,6 +13,8 @@ interface ImageUploadWithPriceProps {
     originalCid: string;
     blurredUrl: string;
     originalUrl: string;
+    ipnsBlurred?: string;
+    ipnsOriginal?: string;
     price: number;
   }) => void;
   onRemove: () => void;
@@ -34,6 +36,8 @@ export function ImageUploadWithPrice({
     originalCid: string;
     blurredUrl: string;
     originalUrl: string;
+    ipnsBlurred?: string;
+    ipnsOriginal?: string;
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -57,7 +61,7 @@ export function ImageUploadWithPrice({
       // Generate blurred version
       const blurredFile = await generateBlurredImage(file, 20);
 
-      // Upload both images
+      // Upload both images (now includes IPNS backup)
       const [originalUpload, blurredUpload] = await Promise.all([
         uploadImage(file),
         uploadImage(blurredFile),
@@ -70,6 +74,8 @@ export function ImageUploadWithPrice({
         originalCid: originalUpload.cid,
         blurredUrl: blurredUpload.url,
         originalUrl: originalUpload.url,
+        ipnsBlurred: blurredUpload.ipnsUrl,
+        ipnsOriginal: originalUpload.ipnsUrl,
       };
       
       setImageData(uploadData);

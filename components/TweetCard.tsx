@@ -12,6 +12,7 @@ import { ReportButton } from "./ReportButton";
 import { Post } from "@/types";
 import { formatDate, shortenAddress } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { useRealtimePostUpdates } from "@/hooks/use-websocket";
 import {
   likePost,
   unlikePost,
@@ -37,6 +38,21 @@ export function TweetCard({ post, className }: TweetCardProps) {
   const [repostsCount, setRepostsCount] = useState(post.reposts);
   const [isLiking, setIsLiking] = useState(false);
   const [isReposting, setIsReposting] = useState(false);
+
+  // Real-time updates
+  const { postUpdates } = useRealtimePostUpdates(post.id);
+
+  // Handle real-time updates
+  useEffect(() => {
+    postUpdates.forEach(update => {
+      if (update.type === 'like' && update.data?.action === 'like') {
+        setLikesCount(prev => prev + 1);
+      } else if (update.type === 'comment' && update.data?.action === 'new_comment') {
+        // Comments are handled by the CommentsModal component
+        // We could update comment count here if needed
+      }
+    });
+  }, [postUpdates]);
 
   const hasImage = post.imageBlurred || post.imageOriginal;
   const imageUrl = post.imageOriginal
