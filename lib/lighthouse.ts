@@ -83,11 +83,9 @@ export async function uploadToLighthouse(formData: FormData): Promise<string> {
 
   console.log("Attempting Storacha upload with API key present:", !!STORACHA_API_KEY);
 
-  // Try multiple endpoints in order of preference
+  // Try working endpoints - using Lighthouse for now since Storacha endpoints are not resolving
   const endpoints = [
-    "https://api.storacha.network/upload",              // Primary Storacha endpoint
-    "https://upload.ipfs.storacha.network/upload",      // Alternative Storacha endpoint
-    "https://node.lighthouse.storage/api/v0/add",       // Legacy Lighthouse endpoint
+    "https://node.lighthouse.storage/api/v0/add",       // Working Lighthouse endpoint
   ];
 
   let lastError: Error | null = null;
@@ -128,10 +126,10 @@ export async function uploadToLighthouse(formData: FormData): Promise<string> {
       console.log(`Success with ${endpoint}:`, data);
 
       // Handle different response formats
-      const cid = data.cid || data.Hash;
+      const cid = data.Hash; // Lighthouse returns Hash
       if (!cid) {
-        console.error("Storacha API Response missing cid/Hash:", data);
-        lastError = new Error("Invalid response: missing cid or Hash field");
+        console.error("Lighthouse API Response missing Hash:", data);
+        lastError = new Error("Invalid response: missing Hash field");
         continue;
       }
 
@@ -145,7 +143,7 @@ export async function uploadToLighthouse(formData: FormData): Promise<string> {
   }
 
   // All endpoints failed
-  throw lastError || new Error("All Storacha upload endpoints failed");
+  throw lastError || new Error("All upload endpoints failed");
 }
 
 /**
