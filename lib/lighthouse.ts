@@ -1,7 +1,12 @@
-// Storacha (formerly Lighthouse) API
-// Note: Storacha is the new name for Lighthouse.storage
-// Support multiple env var names for flexibility
+// IPFS Storage APIs - Support multiple providers
 // For client-side access in Next.js, use NEXT_PUBLIC_ prefix
+
+// Primary: NFT.Storage (most reliable)
+const NFT_STORAGE_API_KEY =
+  process.env.NEXT_PUBLIC_NFT_STORAGE_API_KEY ||
+  process.env.NFT_STORAGE_API_KEY;
+
+// Fallback: Storacha/Lighthouse
 const STORACHA_API_KEY =
   process.env.NEXT_PUBLIC_STORACHA_API_KEY ||
   process.env.STORACHA_API_KEY ||
@@ -9,12 +14,14 @@ const STORACHA_API_KEY =
   process.env.LIGHTHOUSE_STORAGE ||
   process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY;
 
-if (!STORACHA_API_KEY) {
-  console.warn("STORACHA_API_KEY or LIGHTHOUSE_STORAGE not set. Image uploads will fail.");
-  console.warn("Make sure to set NEXT_PUBLIC_STORACHA_API_KEY or NEXT_PUBLIC_LIGHTHOUSE_API_KEY in your Vercel environment variables.");
+// Check if at least one API key is configured
+if (!NFT_STORAGE_API_KEY && !STORACHA_API_KEY) {
+  console.warn("No IPFS storage API key configured. Image uploads will fail.");
+  console.warn("Set NEXT_PUBLIC_NFT_STORAGE_API_KEY or NEXT_PUBLIC_STORACHA_API_KEY in Vercel environment variables.");
 }
 
 // Log API key status for debugging (without exposing the key)
+console.log("🔑 NFT.Storage API Key configured:", !!NFT_STORAGE_API_KEY, NFT_STORAGE_API_KEY?.substring(0, 10) + "...");
 console.log("🔑 Storacha API Key configured:", !!STORACHA_API_KEY, STORACHA_API_KEY?.substring(0, 10) + "...");
 
 /**
@@ -23,8 +30,8 @@ console.log("🔑 Storacha API Key configured:", !!STORACHA_API_KEY, STORACHA_AP
  * @returns IPFS CID and gateway URL
  */
 export async function uploadImage(file: File): Promise<{ cid: string; url: string }> {
-  if (!STORACHA_API_KEY) {
-    throw new Error("STORACHA_API_KEY or LIGHTHOUSE_API_KEY is not configured. Please set it in your .env file.");
+  if (!NFT_STORAGE_API_KEY && !STORACHA_API_KEY) {
+    throw new Error("No IPFS storage API key configured. Set NEXT_PUBLIC_NFT_STORAGE_API_KEY or NEXT_PUBLIC_STORACHA_API_KEY");
   }
 
   try {
@@ -32,34 +39,15 @@ export async function uploadImage(file: File): Promise<{ cid: string; url: strin
     const formData = new FormData();
     formData.append("file", file);
 
-    // Upload to Storacha (formerly Lighthouse)
-    const response = await fetch("https://api.storacha.network/upload", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${STORACHA_API_KEY}`,
-      },
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Storacha upload failed: ${response.status} ${errorText}`);
-    }
-
-    const data = await response.json();
-
-    if (!data || !data.cid) {
-      throw new Error("Failed to upload to Storacha: Invalid response");
-    }
-
-    const cid = data.cid;
+    // Use the same multi-provider logic
+    const cid = await uploadToLighthouse(formData);
 
     // Construct gateway URL - using IPFS gateway
     const url = `https://ipfs.io/ipfs/${cid}`;
 
     return { cid, url };
   } catch (error) {
-    console.error("Storacha upload error:", error);
+    console.error("IPFS upload error:", error);
     throw new Error(`Failed to upload image: ${error instanceof Error ? error.message : "Unknown error"}`);
   }
 }
@@ -69,81 +57,106 @@ export async function uploadImage(file: File): Promise<{ cid: string; url: strin
  * @param formData FormData containing the file
  * @returns IPFS CID
  */
+// Configuration for multi-provider uploads
+const MULTI_PROVIDER_BACKUP = process.env.NEXT_PUBLIC_ENABLE_MULTI_PROVIDER_BACKUP === 'true';
+
 export async function uploadToLighthouse(formData: FormData): Promise<string> {
-  if (!STORACHA_API_KEY) {
-    console.error("Storacha API Key not found. Checked env vars:", {
-      NEXT_PUBLIC_STORACHA_API_KEY: !!process.env.NEXT_PUBLIC_STORACHA_API_KEY,
-      STORACHA_API_KEY: !!process.env.STORACHA_API_KEY,
-      NEXT_PUBLIC_LIGHTHOUSE_STORAGE: !!process.env.NEXT_PUBLIC_LIGHTHOUSE_STORAGE,
-      LIGHTHOUSE_STORAGE: !!process.env.LIGHTHOUSE_STORAGE,
-      NEXT_PUBLIC_LIGHTHOUSE_API_KEY: !!process.env.NEXT_PUBLIC_LIGHTHOUSE_API_KEY,
-    });
-    throw new Error("STORACHA_API_KEY or LIGHTHOUSE_API_KEY is not configured. Please set it in your .env file.");
-  }
+  const results: { provider: string; cid?: string; error?: string }[] = [];
 
-  console.log("Attempting Storacha upload with API key present:", !!STORACHA_API_KEY);
-
-  // Try working endpoints - using Lighthouse for now since Storacha endpoints are not resolving
-  const endpoints = [
-    "https://node.lighthouse.storage/api/v0/add",       // Working Lighthouse endpoint
-  ];
-
-  let lastError: Error | null = null;
-
-  for (const endpoint of endpoints) {
+  // Try Storacha first (primary)
+  if (STORACHA_API_KEY) {
     try {
-      console.log(`Trying endpoint: ${endpoint}`);
+      console.log("📤 Trying Storacha (primary)...");
 
-      const response = await fetch(endpoint, {
+      const response = await fetch("https://node.lighthouse.storage/api/v0/add", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${STORACHA_API_KEY}`,
         },
         body: formData,
-        signal: AbortSignal.timeout(30000), // 30 second timeout
+        signal: AbortSignal.timeout(30000),
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Storacha API Error for ${endpoint}:`, {
-          status: response.status,
-          statusText: response.statusText,
-          errorText,
-          headers: Object.fromEntries(response.headers.entries()),
-        });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.Hash) {
+          console.log("✅ Storacha success:", data.Hash);
+          results.push({ provider: "storacha", cid: data.Hash });
 
-        // If it's a 401/403, the API key is likely invalid
-        if (response.status === 401 || response.status === 403) {
-          throw new Error(`Authentication failed: Invalid API key or insufficient permissions`);
+          // If multi-provider backup is disabled, return immediately
+          if (!MULTI_PROVIDER_BACKUP) {
+            return data.Hash;
+          }
+        } else {
+          results.push({ provider: "storacha", error: "Missing Hash in response" });
         }
-
-        // Continue to next endpoint for other errors
-        lastError = new Error(`HTTP ${response.status}: ${errorText}`);
-        continue;
+      } else {
+        const errorText = await response.text();
+        console.warn("❌ Storacha failed:", errorText);
+        results.push({ provider: "storacha", error: errorText });
       }
-
-      const data = await response.json();
-      console.log(`Success with ${endpoint}:`, data);
-
-      // Handle different response formats
-      const cid = data.Hash; // Lighthouse returns Hash
-      if (!cid) {
-        console.error("Lighthouse API Response missing Hash:", data);
-        lastError = new Error("Invalid response: missing Hash field");
-        continue;
-      }
-
-      return cid;
-
     } catch (error) {
-      console.warn(`Failed with ${endpoint}:`, error instanceof Error ? error.message : String(error));
-      lastError = error instanceof Error ? error : new Error(String(error));
-      continue;
+      console.warn("💥 Storacha error:", error);
+      results.push({ provider: "storacha", error: error instanceof Error ? error.message : String(error) });
     }
   }
 
-  // All endpoints failed
-  throw lastError || new Error("All upload endpoints failed");
+  // Try NFT.Storage (secondary)
+  if (NFT_STORAGE_API_KEY) {
+    try {
+      console.log("📤 Trying NFT.Storage (secondary)...");
+
+      const response = await fetch("https://api.nft.storage/upload", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${NFT_STORAGE_API_KEY}`,
+        },
+        body: formData,
+        signal: AbortSignal.timeout(30000),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.value?.cid) {
+          console.log("✅ NFT.Storage success:", data.value.cid);
+          results.push({ provider: "nft.storage", cid: data.value.cid });
+
+          // If we don't have a primary result yet, use this one
+          if (!results.find(r => r.cid) || !MULTI_PROVIDER_BACKUP) {
+            return data.value.cid;
+          }
+        } else {
+          results.push({ provider: "nft.storage", error: "Missing CID in response" });
+        }
+      } else {
+        const errorText = await response.text();
+        console.warn("❌ NFT.Storage failed:", errorText);
+        results.push({ provider: "nft.storage", error: errorText });
+      }
+    } catch (error) {
+      console.warn("💥 NFT.Storage error:", error);
+      results.push({ provider: "nft.storage", error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
+  // Log results
+  console.log("📊 Upload results:", results);
+
+  // Return the first successful upload
+  const success = results.find(r => r.cid);
+  if (success && success.cid) {
+    console.log(`🎯 Using ${success.provider} CID: ${success.cid}`);
+    return success.cid;
+  }
+
+  // Check if any API keys are configured
+  if (!NFT_STORAGE_API_KEY && !STORACHA_API_KEY) {
+    throw new Error("No IPFS storage API key configured. Set NEXT_PUBLIC_NFT_STORAGE_API_KEY or NEXT_PUBLIC_STORACHA_API_KEY");
+  }
+
+  // All methods failed
+  const errors = results.filter(r => r.error).map(r => `${r.provider}: ${r.error}`).join("; ");
+  throw new Error(`All IPFS storage methods failed: ${errors}`);
 }
 
 /**
@@ -199,42 +212,42 @@ export async function generateBlurredImage(file: File, blurAmount: number = 20):
  * Call this from browser console: window.testLighthouseConnection()
  */
 export async function testLighthouseConnection() {
-  console.log("🔍 Testing Storacha (formerly Lighthouse) Connection...");
-  console.log("API Key configured:", !!STORACHA_API_KEY);
-  console.log("API Key preview:", STORACHA_API_KEY?.substring(0, 20) + "...");
+  console.log("🔍 Testing Multi-Provider IPFS Storage...");
+  console.log("Multi-provider backup:", MULTI_PROVIDER_BACKUP);
+  console.log("NFT.Storage API Key configured:", !!NFT_STORAGE_API_KEY);
+  console.log("Storacha API Key configured:", !!STORACHA_API_KEY);
   console.log("Environment variables checked:",
-    Object.keys(process.env).filter(key => key.toLowerCase().includes('storacha') || key.toLowerCase().includes('lighthouse'))
+    Object.keys(process.env).filter(key =>
+      key.toLowerCase().includes('nft') ||
+      key.toLowerCase().includes('storacha') ||
+      key.toLowerCase().includes('lighthouse') ||
+      key.toLowerCase().includes('multi')
+    )
   );
 
-  if (!STORACHA_API_KEY) {
-    console.error("❌ No Storacha API key found!");
-    return { success: false, error: "No API key" };
+  if (!NFT_STORAGE_API_KEY && !STORACHA_API_KEY) {
+    console.error("❌ No IPFS storage API keys found!");
+    return { success: false, error: "No API keys" };
   }
 
+  const results: { provider: string; success: boolean; cid?: string; error?: string; endpoint: string }[] = [];
+
   try {
-    // Test 1: Check API key format
-    console.log("📋 API Key format check:", {
-      length: STORACHA_API_KEY.length,
-      hasDots: STORACHA_API_KEY.includes('.'),
-      startsWith: STORACHA_API_KEY.substring(0, 10),
-      isDID: STORACHA_API_KEY.startsWith('did:key:')
-    });
-
-    // Test 2: Try different endpoints
-    const endpoints = [
-      "https://api.storacha.network/upload",
-      "https://upload.ipfs.storacha.network/upload",
-      "https://node.lighthouse.storage/api/v0/add",  // Legacy fallback
-    ];
-
-    for (const endpoint of endpoints) {
-      console.log(`🌐 Testing endpoint: ${endpoint}`);
+    // Test Storacha first (primary)
+    if (STORACHA_API_KEY) {
+      console.log("🧪 Testing Storacha (primary)...");
+      console.log("📋 Storacha API Key format:", {
+        length: STORACHA_API_KEY.length,
+        hasDots: STORACHA_API_KEY.includes('.'),
+        startsWith: STORACHA_API_KEY.substring(0, 10),
+        isDID: STORACHA_API_KEY.startsWith('did:key:')
+      });
 
       try {
         const testFormData = new FormData();
         testFormData.append("file", new Blob(["test"], { type: "text/plain" }), "test.txt");
 
-        const response = await fetch(endpoint, {
+        const response = await fetch("https://node.lighthouse.storage/api/v0/add", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${STORACHA_API_KEY}`,
@@ -243,26 +256,114 @@ export async function testLighthouseConnection() {
           signal: AbortSignal.timeout(15000),
         });
 
-        console.log(`📡 ${endpoint} - Status: ${response.status}`);
+        console.log(`📡 Storacha - Status: ${response.status}`);
 
         if (response.ok) {
           const data = await response.json();
           console.log("✅ Storacha test successful:", data);
-          return { success: true, data, endpoint };
+          results.push({
+            provider: "storacha",
+            success: true,
+            cid: data.Hash,
+            endpoint: "https://node.lighthouse.storage/api/v0/add"
+          });
         } else {
           const errorText = await response.text();
-          console.log(`❌ ${endpoint} failed:`, errorText);
+          console.log(`❌ Storacha failed:`, errorText);
+          results.push({
+            provider: "storacha",
+            success: false,
+            error: errorText,
+            endpoint: "https://node.lighthouse.storage/api/v0/add"
+          });
         }
       } catch (err) {
-        console.log(`💥 ${endpoint} error:`, err instanceof Error ? err.message : String(err));
+        console.log(`💥 Storacha error:`, err instanceof Error ? err.message : String(err));
+        results.push({
+          provider: "storacha",
+          success: false,
+          error: err instanceof Error ? err.message : String(err),
+          endpoint: "https://node.lighthouse.storage/api/v0/add"
+        });
       }
     }
 
-    console.error("❌ All endpoints failed");
-    return { success: false, error: "All endpoints failed" };
+    // Test NFT.Storage (secondary)
+    if (NFT_STORAGE_API_KEY) {
+      console.log("🧪 Testing NFT.Storage (secondary)...");
+      console.log("📋 NFT.Storage API Key format:", {
+        length: NFT_STORAGE_API_KEY.length,
+        hasDots: NFT_STORAGE_API_KEY.includes('.'),
+        startsWith: NFT_STORAGE_API_KEY.substring(0, 10)
+      });
+
+      try {
+        const testFormData = new FormData();
+        testFormData.append("file", new Blob(["test"], { type: "text/plain" }), "test.txt");
+
+        const response = await fetch("https://api.nft.storage/upload", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${NFT_STORAGE_API_KEY}`,
+          },
+          body: testFormData,
+          signal: AbortSignal.timeout(15000),
+        });
+
+        console.log(`📡 NFT.Storage - Status: ${response.status}`);
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log("✅ NFT.Storage test successful:", data);
+          results.push({
+            provider: "nft.storage",
+            success: true,
+            cid: data.value?.cid,
+            endpoint: "https://api.nft.storage/upload"
+          });
+        } else {
+          const errorText = await response.text();
+          console.log(`❌ NFT.Storage failed:`, errorText);
+          results.push({
+            provider: "nft.storage",
+            success: false,
+            error: errorText,
+            endpoint: "https://api.nft.storage/upload"
+          });
+        }
+      } catch (err) {
+        console.log(`💥 NFT.Storage error:`, err instanceof Error ? err.message : String(err));
+        results.push({
+          provider: "nft.storage",
+          success: false,
+          error: err instanceof Error ? err.message : String(err),
+          endpoint: "https://api.nft.storage/upload"
+        });
+      }
+    }
+
+    console.log("📊 Complete test results:", results);
+
+    const successful = results.filter(r => r.success);
+    if (successful.length > 0) {
+      console.log(`✅ ${successful.length} provider(s) working:`, successful.map(r => r.provider));
+      return {
+        success: true,
+        results,
+        primary: successful[0],
+        message: `${successful.length} provider(s) working successfully`
+      };
+    } else {
+      console.error("❌ All storage providers failed");
+      return {
+        success: false,
+        results,
+        error: "All providers failed: " + results.map(r => `${r.provider}: ${r.error}`).join("; ")
+      };
+    }
 
   } catch (error) {
-    console.error("❌ Storacha test failed:", error);
+    console.error("❌ IPFS storage test failed:", error);
     return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
@@ -271,41 +372,11 @@ export async function testLighthouseConnection() {
  * Alternative upload method using Lighthouse SDK approach
  */
 export async function uploadWithLighthouseSDK(file: File): Promise<string> {
-  // This is a fallback method that mimics the Storacha SDK approach
+  // Use the same multi-provider logic as the main upload function
   const formData = new FormData();
   formData.append("file", file);
 
-  // Try the working Storacha endpoints
-  const workingEndpoints = [
-    "https://api.storacha.network/upload",
-    "https://upload.ipfs.storacha.network/upload",
-    "https://node.lighthouse.storage/api/v0/add"  // Legacy fallback
-  ];
-
-  for (const endpoint of workingEndpoints) {
-    try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${STORACHA_API_KEY}`,
-        },
-        body: formData,
-        signal: AbortSignal.timeout(30000),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const cid = data.cid || data.Hash;
-        if (cid) {
-          return cid;
-        }
-      }
-    } catch (error) {
-      console.warn(`Failed with ${endpoint}:`, error instanceof Error ? error.message : String(error));
-    }
-  }
-
-  throw new Error("All Storacha upload methods failed");
+  return uploadToLighthouse(formData);
 }
 
 // Make it available globally for debugging
