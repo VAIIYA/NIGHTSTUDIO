@@ -40,13 +40,13 @@ export function TweetCard({ post, className }: TweetCardProps) {
 
   const hasImage = post.imageBlurred || post.imageOriginal;
   const imageUrl = post.imageOriginal
-    ? `https://gateway.lighthouse.storage/ipfs/${post.imageOriginal}`
+    ? `https://ipfs.io/ipfs/${post.imageOriginal}`
     : post.imageBlurred
-    ? `https://gateway.lighthouse.storage/ipfs/${post.imageBlurred}`
+    ? `https://ipfs.io/ipfs/${post.imageBlurred}`
     : null;
 
   const blurredImageUrl = post.imageBlurred
-    ? `https://gateway.lighthouse.storage/ipfs/${post.imageBlurred}`
+    ? `https://ipfs.io/ipfs/${post.imageBlurred}`
     : imageUrl;
 
   // Check if user has liked/reposted this post

@@ -131,7 +131,7 @@ export default function SearchPage() {
                       <div className="h-16 w-16 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
                         {profile.avatar ? (
                           <img
-                            src={`https://gateway.lighthouse.storage/ipfs/${profile.avatar}`}
+                            src={`https://ipfs.io/ipfs/${profile.avatar}`}
                             alt="Profile"
                             className="h-full w-full rounded-full object-cover"
                           />

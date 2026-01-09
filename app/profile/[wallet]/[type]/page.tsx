@@ -127,7 +127,7 @@ export default function FollowListPage() {
                   <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center">
                     {profile.avatar ? (
                       <img
-                        src={`https://gateway.lighthouse.storage/ipfs/${profile.avatar}`}
+                        src={`https://ipfs.io/ipfs/${profile.avatar}`}
                         alt="Profile"
                         className="h-full w-full rounded-full object-cover"
                       />

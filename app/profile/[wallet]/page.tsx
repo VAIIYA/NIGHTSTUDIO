@@ -66,7 +66,7 @@ export default function ProfilePage() {
           <div className="h-20 w-20 rounded-full bg-primary/20 flex items-center justify-center border-4 border-background -mt-10 relative z-10">
             {profile?.avatar ? (
               <img
-                src={`https://gateway.lighthouse.storage/ipfs/${profile.avatar}`}
+                src={`https://ipfs.io/ipfs/${profile.avatar}`}
                 alt="Profile"
                 className="h-full w-full rounded-full object-cover"
               />

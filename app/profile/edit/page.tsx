@@ -49,8 +49,8 @@ export default function EditProfilePage() {
           setBio(profileData.bio || "");
           setWebsite(profileData.website || "");
           setLocation(profileData.location || "");
-          setAvatarPreview(profileData.avatar ? `https://gateway.lighthouse.storage/ipfs/${profileData.avatar}` : null);
-          setBannerPreview(profileData.banner ? `https://gateway.lighthouse.storage/ipfs/${profileData.banner}` : null);
+          setAvatarPreview(profileData.avatar ? `https://ipfs.io/ipfs/${profileData.avatar}` : null);
+          setBannerPreview(profileData.banner ? `https://ipfs.io/ipfs/${profileData.banner}` : null);
         }
       } catch (error) {
         console.error("Failed to load profile:", error);
