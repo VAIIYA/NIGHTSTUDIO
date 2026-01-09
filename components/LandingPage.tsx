@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { WalletMultiButton } from "@/components/WalletMultiButton";
 import { ArrowRight, CheckCircle2, Zap, Shield } from "lucide-react";
@@ -143,6 +144,12 @@ export function LandingPage() {
             <footer className="border-t border-white/5 py-12 relative z-10">
                 <div className="container mx-auto px-6 text-center text-zinc-600 text-sm">
                     <p>&copy; {new Date().getFullYear()} NightStudio. Built on Solana.</p>
+                    <div className="mt-4 flex items-center justify-center gap-6">
+                        <Link href="/terms" className="text-zinc-400 hover:text-white transition-colors">Terms of Service</Link>
+                        <Link href="/privacy" className="text-zinc-400 hover:text-white transition-colors">Privacy Policy</Link>
+                        <Link href="/dmca" className="text-zinc-400 hover:text-white transition-colors">DMCA</Link>
+                        <Link href="/contract" className="text-zinc-400 hover:text-white transition-colors">Creator Contract</Link>
+                    </div>
                 </div>
             </footer>
         </div>

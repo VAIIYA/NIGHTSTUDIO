@@ -223,7 +223,13 @@ export default function AboutPage() {
             <span>⚡ Lightning fast transactions</span>
             <span>💰 Creator-owned economy</span>
           </div>
-          <p>&copy; {new Date().getFullYear()} NightStudio. Where fantasies become fortunes.</p>
+           <p>&copy; {new Date().getFullYear()} NightStudio. Where fantasies become fortunes.</p>
+           <div className="mt-4 flex items-center justify-center gap-6">
+             <Link href="/terms" className="text-zinc-400 hover:text-white transition-colors">Terms of Service</Link>
+             <Link href="/privacy" className="text-zinc-400 hover:text-white transition-colors">Privacy Policy</Link>
+             <Link href="/dmca" className="text-zinc-400 hover:text-white transition-colors">DMCA</Link>
+             <Link href="/contract" className="text-zinc-400 hover:text-white transition-colors">Creator Contract</Link>
+           </div>
         </div>
       </footer>
     </div>
