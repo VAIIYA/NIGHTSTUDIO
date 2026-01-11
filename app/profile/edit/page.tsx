@@ -12,6 +12,7 @@ import { getProfile, updateProfile } from "@/lib/server-actions";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, X } from "lucide-react";
 import { uploadToLighthouse } from "@/lib/lighthouse";
+import { OnboardingChecklist } from "@/components/OnboardingChecklist";
 
 export default function EditProfilePage() {
   const router = useRouter();
@@ -167,6 +168,8 @@ export default function EditProfilePage() {
         <h1 className="text-2xl font-bold">Edit Profile</h1>
         <p className="text-muted-foreground">Update your profile information and photos</p>
       </div>
+
+      <OnboardingChecklist profile={profile} />
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Banner Upload */}

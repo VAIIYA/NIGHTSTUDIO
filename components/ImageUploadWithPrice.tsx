@@ -39,18 +39,109 @@ export function ImageUploadWithPrice({
     ipnsBlurred?: string;
     ipnsOriginal?: string;
   } | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  const validateFile = (file: File): string | null => {
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+
+    if (file.size > maxSize) {
+      return `File size (${(file.size / 1024 / 1024).toFixed(1)}MB) exceeds the 10MB limit.`;
+    }
+
+    if (!allowedTypes.includes(file.type)) {
+      return `File type ${file.type} not supported. Please use JPEG, PNG, WebP, or GIF.`;
+    }
+
+    return null;
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      const file = files[0];
+      const validationError = validateFile(file);
+      if (validationError) {
+        toast({
+          variant: "destructive",
+          title: "Invalid file",
+          description: validationError,
+        });
+        return;
+      }
+
+      // Process file directly
+      processFile(file);
+    }
+  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
+    processFile(file);
+  };
+
+  const compressImage = (file: File, maxWidth: number = 1920, quality: number = 0.85): Promise<File> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+      const img = new window.Image();
+
+      img.onload = () => {
+        // Calculate new dimensions
+        let { width, height } = img;
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        // Draw and compress
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            // Create a new file from the blob
+            const compressedFile = new File([blob], file.name, {
+              type: file.type,
+              lastModified: Date.now(),
+            });
+            resolve(compressedFile);
+          } else {
+            resolve(file); // Fallback to original
+          }
+        }, file.type, quality);
+      };
+
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  const processFile = async (file: File) => {
+    const validationError = validateFile(file);
+    if (validationError) {
       toast({
         variant: "destructive",
         title: "Invalid file",
-        description: "Please select an image file",
+        description: validationError,
       });
       return;
     }
@@ -58,13 +149,19 @@ export function ImageUploadWithPrice({
     setIsUploading(true);
 
     try {
-      // Generate blurred version
-      const blurredFile = await generateBlurredImage(file, 20);
+      // Compress image if it's large
+      let processedFile = file;
+      if (file.size > 500 * 1024) { // Compress if over 500KB
+        processedFile = await compressImage(file);
+      }
 
-      // Upload both images (now includes IPNS backup)
+      // Generate blurred version from compressed image
+      const blurredFile = await generateBlurredImage(processedFile, 20);
+
+      // Upload both images (now includes IPNS backup) with progress
       const [originalUpload, blurredUpload] = await Promise.all([
-        uploadImage(file),
-        uploadImage(blurredFile),
+        uploadImage(processedFile, (progress) => setUploadProgress(progress * 0.5)), // 50% for original
+        uploadImage(blurredFile, (progress) => setUploadProgress(50 + progress * 0.5)), // 50% for blurred
       ]);
 
       setPreviewUrl(blurredUpload.url);
@@ -116,7 +213,16 @@ export function ImageUploadWithPrice({
     <div className="space-y-4">
       {/* File Input */}
       {!previewUrl && (
-        <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+        <div
+          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+            isDragOver
+              ? "border-primary bg-primary/5"
+              : "border-border hover:border-primary/50"
+          }`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
           <input
             ref={fileInputRef}
             type="file"
@@ -138,9 +244,28 @@ export function ImageUploadWithPrice({
             ) : (
               <>
                 <Upload className="h-8 w-8 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  Click to upload image
-                </span>
+                {isUploading ? (
+                  <>
+                    <span className="text-sm text-muted-foreground">
+                      Uploading... {uploadProgress.toFixed(0)}%
+                    </span>
+                    <div className="w-full bg-background/50 rounded-full h-2 mt-2">
+                      <div
+                        className="bg-primary h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-sm text-muted-foreground">
+                      Click to upload image or drag and drop
+                    </span>
+                    <span className="text-xs text-muted-foreground/70">
+                      Supports JPEG, PNG, WebP, GIF up to 10MB
+                    </span>
+                  </>
+                )}
               </>
             )}
           </label>

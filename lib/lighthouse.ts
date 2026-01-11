@@ -110,9 +110,10 @@ export async function uploadToIPNS(file: File, existingCid?: string): Promise<st
 /**
  * Upload a file to IPFS via Lighthouse.storage with optional IPNS backup
  * @param file File to upload
+ * @param onProgress Optional progress callback (0-100)
  * @returns IPFS CID, gateway URL, and optional IPNS URL
  */
-export async function uploadImage(file: File): Promise<{ cid: string; url: string; ipnsUrl?: string }> {
+export async function uploadImage(file: File, onProgress?: (progress: number) => void): Promise<{ cid: string; url: string; ipnsUrl?: string }> {
   if (!NFT_STORAGE_API_KEY && !STORACHA_API_KEY) {
     throw new Error("No IPFS storage API key configured. Set NEXT_PUBLIC_NFT_STORAGE_API_KEY or NEXT_PUBLIC_STORACHA_API_KEY");
   }
@@ -159,7 +160,51 @@ export async function uploadImage(file: File): Promise<{ cid: string; url: strin
 // Configuration for multi-provider uploads
 const MULTI_PROVIDER_BACKUP = process.env.NEXT_PUBLIC_ENABLE_MULTI_PROVIDER_BACKUP === 'true';
 
-export async function uploadToLighthouse(formData: FormData): Promise<string> {
+async function uploadWithProgress(url: string, formData: FormData, headers: Record<string, string> = {}, onProgress?: (progress: number) => void): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable && onProgress) {
+        const progress = (event.loaded / event.total) * 100;
+        onProgress(progress);
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          resolve(data);
+        } catch (e) {
+          resolve(xhr.responseText);
+        }
+      } else {
+        reject(new Error(`HTTP ${xhr.status}: ${xhr.responseText}`));
+      }
+    });
+
+    xhr.addEventListener('error', () => {
+      reject(new Error('Network error'));
+    });
+
+    xhr.addEventListener('timeout', () => {
+      reject(new Error('Request timeout'));
+    });
+
+    xhr.open('POST', url);
+    xhr.timeout = 30000;
+
+    // Set headers
+    Object.entries(headers).forEach(([key, value]) => {
+      xhr.setRequestHeader(key, value);
+    });
+
+    xhr.send(formData);
+  });
+}
+
+export async function uploadToLighthouse(formData: FormData, onProgress?: (progress: number) => void): Promise<string> {
   const results: { provider: string; cid?: string; error?: string }[] = [];
 
   // Try Storacha first (primary)
@@ -167,32 +212,23 @@ export async function uploadToLighthouse(formData: FormData): Promise<string> {
     try {
       console.log("📤 Trying Storacha (primary)...");
 
-      const response = await fetch("https://node.lighthouse.storage/api/v0/add", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${STORACHA_API_KEY}`,
-        },
-        body: formData,
-        signal: AbortSignal.timeout(30000),
-      });
+      const data = await uploadWithProgress(
+        "https://node.lighthouse.storage/api/v0/add",
+        formData,
+        { Authorization: `Bearer ${STORACHA_API_KEY}` },
+        onProgress
+      );
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.Hash) {
-          console.log("✅ Storacha success:", data.Hash);
-          results.push({ provider: "storacha", cid: data.Hash });
+      if (data.Hash) {
+        console.log("✅ Storacha success:", data.Hash);
+        results.push({ provider: "storacha", cid: data.Hash });
 
-          // If multi-provider backup is disabled, return immediately
-          if (!MULTI_PROVIDER_BACKUP) {
-            return data.Hash;
-          }
-        } else {
-          results.push({ provider: "storacha", error: "Missing Hash in response" });
+        // If multi-provider backup is disabled, return immediately
+        if (!MULTI_PROVIDER_BACKUP) {
+          return data.Hash;
         }
       } else {
-        const errorText = await response.text();
-        console.warn("❌ Storacha failed:", errorText);
-        results.push({ provider: "storacha", error: errorText });
+        results.push({ provider: "storacha", error: "Missing Hash in response" });
       }
     } catch (error) {
       console.warn("💥 Storacha error:", error);
@@ -205,32 +241,23 @@ export async function uploadToLighthouse(formData: FormData): Promise<string> {
     try {
       console.log("📤 Trying NFT.Storage (secondary)...");
 
-      const response = await fetch("https://api.nft.storage/upload", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${NFT_STORAGE_API_KEY}`,
-        },
-        body: formData,
-        signal: AbortSignal.timeout(30000),
-      });
+      const nftData = await uploadWithProgress(
+        "https://api.nft.storage/upload",
+        formData,
+        { Authorization: `Bearer ${NFT_STORAGE_API_KEY}` },
+        onProgress
+      );
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.value?.cid) {
-          console.log("✅ NFT.Storage success:", data.value.cid);
-          results.push({ provider: "nft.storage", cid: data.value.cid });
+      if (nftData.value?.cid) {
+        console.log("✅ NFT.Storage success:", nftData.value.cid);
+        results.push({ provider: "nft.storage", cid: nftData.value.cid });
 
-          // If we don't have a primary result yet, use this one
-          if (!results.find(r => r.cid) || !MULTI_PROVIDER_BACKUP) {
-            return data.value.cid;
-          }
-        } else {
-          results.push({ provider: "nft.storage", error: "Missing CID in response" });
+        // If we don't have a primary result yet, use this one
+        if (!results.find(r => r.cid) || !MULTI_PROVIDER_BACKUP) {
+          return nftData.value.cid;
         }
       } else {
-        const errorText = await response.text();
-        console.warn("❌ NFT.Storage failed:", errorText);
-        results.push({ provider: "nft.storage", error: errorText });
+        results.push({ provider: "nft.storage", error: "Missing CID in response" });
       }
     } catch (error) {
       console.warn("💥 NFT.Storage error:", error);

@@ -11,6 +11,7 @@ export interface Post {
   likes: number;
   comments: number;
   reposts: number;
+  pinned?: boolean; // Whether this post is pinned by the author
 }
 
 export interface Unlock {

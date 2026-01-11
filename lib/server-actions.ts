@@ -98,7 +98,7 @@ export async function getPostsByAuthor(author: string, limit: number = 100, offs
 
   const posts = await postsCollection
     .find({ author })
-    .sort({ createdAt: -1 })
+    .sort({ pinned: -1, createdAt: -1 }) // Pinned posts first, then by creation date
     .skip(offset)
     .limit(limit)
     .toArray();
@@ -1242,6 +1242,70 @@ export async function getSubscriberSubscriptions(subscriber: string): Promise<Su
 }
 
 /**
+ * Get billing history for a subscriber
+ */
+export async function getBillingHistory(subscriber: string): Promise<Array<{
+  id: string;
+  type: 'subscription' | 'unlock';
+  amount: number;
+  description: string;
+  date: number;
+  creator?: string;
+  postId?: string;
+}>> {
+  const db = await getDatabase();
+
+  const billingHistory: Array<{
+    id: string;
+    type: 'subscription' | 'unlock';
+    amount: number;
+    description: string;
+    date: number;
+    creator?: string;
+    postId?: string;
+  }> = [];
+
+  // Get subscription payments
+  const subscriptionsCollection = db.collection<Subscription>(SUBSCRIPTIONS_COLLECTION);
+  const subscriptions = await subscriptionsCollection
+    .find({ subscriber, isActive: true })
+    .sort({ createdAt: -1 })
+    .toArray();
+
+  subscriptions.forEach(sub => {
+    billingHistory.push({
+      id: sub.id,
+      type: 'subscription',
+      amount: sub.totalPaid,
+      description: `Subscription to ${sub.creator.slice(0, 8)}...`,
+      date: sub.createdAt,
+      creator: sub.creator,
+    });
+  });
+
+  // Get unlock payments
+  const unlocksCollection = db.collection(UNLOCKS_COLLECTION);
+  const unlocks = await unlocksCollection
+    .find({ wallet: subscriber })
+    .sort({ timestamp: -1 })
+    .toArray();
+
+  unlocks.forEach(unlock => {
+    billingHistory.push({
+      id: unlock.txSignature,
+      type: 'unlock',
+      amount: unlock.amount,
+      description: `Image unlock`,
+      date: unlock.timestamp,
+      postId: unlock.postId,
+    });
+  });
+
+  // Sort by date (most recent first)
+  return billingHistory.sort((a, b) => b.date - a.date);
+}
+
+/**
  * Cancel a subscription
  */
 export async function cancelSubscription(subscriptionId: string, subscriber: string): Promise<void> {
@@ -1256,6 +1320,38 @@ export async function cancelSubscription(subscriptionId: string, subscriber: str
   if (result.matchedCount === 0) {
     throw new Error("Subscription not found");
   }
+}
+
+/**
+ * Manually renew a subscription (user-initiated)
+ */
+export async function manualRenewSubscription(subscriptionId: string, subscriber: string): Promise<{ tierId: string; price: number; creator: string }> {
+  const db = await getDatabase();
+  const subscriptionsCollection = db.collection<Subscription>(SUBSCRIPTIONS_COLLECTION);
+
+  const subscription = await subscriptionsCollection.findOne({
+    id: subscriptionId,
+    subscriber,
+    isActive: true,
+  });
+
+  if (!subscription) {
+    throw new Error("Subscription not found");
+  }
+
+  // Get the tier information
+  const tiersCollection = db.collection<SubscriptionTier>(SUBSCRIPTION_TIERS_COLLECTION);
+  const tier = await tiersCollection.findOne({ id: subscription.tierId });
+
+  if (!tier) {
+    throw new Error("Subscription tier not found");
+  }
+
+  return {
+    tierId: tier.id,
+    price: tier.price,
+    creator: subscription.creator,
+  };
 }
 
 /**
@@ -1284,6 +1380,25 @@ export async function renewSubscription(subscriptionId: string, amount: number):
 export async function hasSubscriptionAccess(subscriber: string, creator: string): Promise<boolean> {
   const subscription = await getActiveSubscription(subscriber, creator);
   return !!subscription && subscription.endDate > Date.now();
+}
+
+/**
+ * Pin or unpin a post (creator only)
+ */
+export async function togglePostPin(postId: string, author: string): Promise<void> {
+  const db = await getDatabase();
+  const postsCollection = db.collection<Post>(POSTS_COLLECTION);
+
+  const post = await postsCollection.findOne({ id: postId, author });
+  if (!post) {
+    throw new Error("Post not found or access denied");
+  }
+
+  const newPinnedStatus = !post.pinned;
+  await postsCollection.updateOne(
+    { id: postId, author },
+    { $set: { pinned: newPinnedStatus } }
+  );
 }
 
 /**

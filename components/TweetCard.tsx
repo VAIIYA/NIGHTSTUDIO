@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Heart, MessageCircle, Repeat2, Share2 } from "lucide-react";
+import { Heart, MessageCircle, Repeat2, Share2, Pin, PinOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LockedImage } from "./LockedImage";
 import { CommentsModal } from "./CommentsModal";
@@ -19,7 +19,8 @@ import {
   hasLikedPost,
   repostPost,
   deleteRepost,
-  hasRepostedPost
+  hasRepostedPost,
+  togglePostPin
 } from "@/lib/server-actions";
 import { useToast } from "@/hooks/use-toast";
 
@@ -38,6 +39,8 @@ export function TweetCard({ post, className }: TweetCardProps) {
   const [repostsCount, setRepostsCount] = useState(post.reposts);
   const [isLiking, setIsLiking] = useState(false);
   const [isReposting, setIsReposting] = useState(false);
+  const [isPinning, setIsPinning] = useState(false);
+  const [isPinned, setIsPinned] = useState(post.pinned || false);
 
   // Real-time updates
   const { postUpdates } = useRealtimePostUpdates(post.id);
@@ -149,6 +152,45 @@ export function TweetCard({ post, className }: TweetCardProps) {
     }
   };
 
+  const handlePin = async () => {
+    if (!connected || !publicKey) {
+      toast({
+        variant: "destructive",
+        title: "Wallet not connected",
+        description: "Please connect your wallet to pin posts",
+      });
+      return;
+    }
+
+    if (publicKey.toString() !== post.author) {
+      toast({
+        variant: "destructive",
+        title: "Access denied",
+        description: "You can only pin your own posts",
+      });
+      return;
+    }
+
+    setIsPinning(true);
+    try {
+      await togglePostPin(post.id, post.author);
+      setIsPinned(!isPinned);
+      toast({
+        variant: "success",
+        title: isPinned ? "Post unpinned" : "Post pinned",
+        description: isPinned ? "Post has been removed from pinned position" : "Post is now pinned to the top of your profile",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to toggle pin status",
+      });
+    } finally {
+      setIsPinning(false);
+    }
+  };
+
   return (
     <article
       className={cn(
@@ -175,6 +217,9 @@ export function TweetCard({ post, className }: TweetCardProps) {
                 {shortenAddress(post.author)}
               </span>
             </Link>
+            {isPinned && (
+              <Pin className="h-3 w-3 text-yellow-500" />
+            )}
             <span className="text-muted-foreground text-sm">
               · {formatDate(post.createdAt)}
             </span>
@@ -248,6 +293,23 @@ export function TweetCard({ post, className }: TweetCardProps) {
               <Heart className={cn("h-4 w-4", isLiked && "fill-current")} />
               <span className="text-xs">{likesCount}</span>
             </Button>
+            {publicKey?.toString() === post.author && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "gap-2",
+                  isPinned
+                    ? "text-yellow-500 hover:bg-yellow-500/10"
+                    : "hover:bg-yellow-500/10 hover:text-yellow-500"
+                )}
+                onClick={handlePin}
+                disabled={isPinning}
+                title={isPinned ? "Unpin post" : "Pin post to top"}
+              >
+                {isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+              </Button>
+            )}
             <ReportButton
               reportedUser={post.author}
               postId={post.id}

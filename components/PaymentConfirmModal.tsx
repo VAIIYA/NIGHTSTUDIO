@@ -38,6 +38,7 @@ export function PaymentConfirmModal({
 }: PaymentConfirmModalProps) {
   const { publicKey, signTransaction, sendTransaction } = useWallet();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [currentStep, setCurrentStep] = useState<string>("");
   const { toast } = useToast();
 
   const platformWallet = process.env.NEXT_PUBLIC_PLATFORM_WALLET
@@ -61,6 +62,8 @@ export function PaymentConfirmModal({
     try {
       const connection = getConnection();
 
+      setCurrentStep("Checking USDC balance...");
+
       // Check USDC balance
       const { balance, hasAccount } = await getUSDCBalance(connection, publicKey);
       
@@ -74,6 +77,8 @@ export function PaymentConfirmModal({
         return;
       }
 
+      setCurrentStep("Building transaction...");
+
       // Build transaction
       const transaction = await buildUSDCTransferTransaction(
         connection,
@@ -83,8 +88,12 @@ export function PaymentConfirmModal({
         platformWallet
       );
 
+      setCurrentStep("Please sign the transaction...");
+
       // Sign transaction
       const signed = await signTransaction(transaction);
+
+      setCurrentStep("Sending transaction...");
 
       // Send transaction
       const signature = await sendTransaction(signed, connection, {
@@ -92,8 +101,12 @@ export function PaymentConfirmModal({
         maxRetries: 3,
       });
 
+      setCurrentStep("Confirming transaction...");
+
       // Wait for confirmation
-      await connection.confirmTransaction(signature, "confirmed");
+      await connection.confirmTransaction(signature, "finalized");
+
+      setCurrentStep("Recording unlock...");
 
       // Record unlock in database
       try {
@@ -109,6 +122,8 @@ export function PaymentConfirmModal({
         // In production, you might want to handle this differently
       }
 
+      setCurrentStep("");
+
       toast({
         variant: "success",
         title: "Payment Successful!",
@@ -119,13 +134,34 @@ export function PaymentConfirmModal({
       onOpenChange(false);
     } catch (error: any) {
       console.error("Payment error:", error);
+      let errorTitle = "Payment Failed";
+      let errorDescription = "Transaction failed. Please try again.";
+
+      if (error?.message?.includes("insufficient funds") || error?.message?.includes("Insufficient USDC")) {
+        errorTitle = "Insufficient Balance";
+        errorDescription = "You don't have enough USDC. Please add funds to your wallet.";
+      } else if (error?.message?.includes("Blockhash not found")) {
+        errorTitle = "Transaction Expired";
+        errorDescription = "Transaction took too long. Please try again.";
+      } else if (error?.message?.includes("Simulation failed")) {
+        errorTitle = "Transaction Would Fail";
+        errorDescription = "Transaction simulation failed. Check your balance and try again.";
+      } else if (error?.message?.includes("User rejected")) {
+        errorTitle = "Transaction Cancelled";
+        errorDescription = "You cancelled the transaction in your wallet.";
+      } else if (error?.message?.includes("Network")) {
+        errorTitle = "Network Error";
+        errorDescription = "Network issue occurred. Please check your connection and try again.";
+      }
+
       toast({
         variant: "destructive",
-        title: "Payment Failed",
-        description: error?.message || "Transaction failed. Please try again.",
+        title: errorTitle,
+        description: errorDescription,
       });
     } finally {
       setIsProcessing(false);
+      setCurrentStep("");
     }
   };
 
@@ -202,7 +238,7 @@ export function PaymentConfirmModal({
             {isProcessing ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Processing...
+                {currentStep || "Processing..."}
               </>
             ) : (
               `Confirm Payment (${price} USDC)`
