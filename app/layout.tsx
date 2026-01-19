@@ -1,12 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
 import "./globals.css";
-import { SolanaProviders } from "@/lib/solana/providers";
-import { Toaster } from "@/components/ui/toaster";
-import { Navbar } from "@/components/Navbar";
-import { DesktopSideNav } from "@/components/DesktopSideNav";
-import { MobileBottomNav } from "@/components/MobileBottomNav";
-import { AppShell } from "@/components/AppShell";
+import ClientLayout from "./ClientLayout";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit" });
@@ -31,12 +26,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} ${outfit.variable} font-sans`}>
-        <SolanaProviders>
-          <AppShell>
-            {children}
-          </AppShell>
-          <Toaster />
-        </SolanaProviders>
+        <ClientLayout>
+          {children}
+        </ClientLayout>
       </body>
     </html>
   );

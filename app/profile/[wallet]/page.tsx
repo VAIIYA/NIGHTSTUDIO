@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
+import Image from "next/image";
 import { TweetCard } from "@/components/TweetCard";
 import { FollowButton } from "@/components/FollowButton";
 import { SubscribeButton } from "@/components/SubscribeButton";
@@ -58,7 +59,7 @@ export default function ProfilePage() {
           {/* Banner */}
           {profile?.banner && (
             <div className="h-32 md:h-48 rounded-lg overflow-hidden mb-4 relative">
-              <img src={profile.banner} alt="Banner" className="w-full h-full object-cover" />
+              <Image src={profile.banner} alt="Banner" fill className="object-cover" />
             </div>
           )}
 
@@ -66,7 +67,7 @@ export default function ProfilePage() {
             {/* Avatar */}
             <div className="h-20 w-20 rounded-full bg-primary/20 flex items-center justify-center border-4 border-white shadow-md relative z-10 flex-shrink-0">
               {profile?.avatar ? (
-                <img src={profile.avatar} alt="Avatar" className="w-full h-full rounded-full object-cover" />
+                <Image src={profile.avatar} alt="Avatar" fill className="rounded-full object-cover" />
               ) : (
                 <span className="text-lg font-mono text-primary/80">
                   {shortenAddress(wallet, 3)}

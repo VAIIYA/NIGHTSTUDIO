@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -204,13 +205,14 @@ export default function EditProfilePage() {
             <div className="relative group">
               <Label htmlFor="banner-upload" className="cursor-pointer block">
                 <div className="w-full h-32 md:h-48 rounded-lg overflow-hidden bg-secondary/20 border-2 border-dashed border-primary/20 hover:border-primary/50 transition-colors flex items-center justify-center relative">
-                  {(bannerPreview || profile?.banner) ? (
-                    <img
-                      src={bannerPreview || profile?.banner || ""}
-                      alt="Banner"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
+                   {(bannerPreview || profile?.banner) ? (
+                     <Image
+                       src={bannerPreview || profile?.banner || ""}
+                       alt="Banner"
+                       fill
+                       className="object-cover"
+                     />
+                   ) : (
                     <div className="text-center text-muted-foreground">
                       <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
                       <span className="text-sm">Upload Banner</span>
@@ -235,13 +237,14 @@ export default function EditProfilePage() {
             <div className="relative -mt-16 ml-4 w-24 h-24 md:w-32 md:h-32 group">
               <Label htmlFor="avatar-upload" className="cursor-pointer block relative">
                 <div className="w-full h-full rounded-full overflow-hidden border-4 border-white bg-secondary/20 shadow-lg relative">
-                  {(avatarPreview || profile?.avatar) ? (
-                    <img
-                      src={avatarPreview || profile?.avatar || ""}
-                      alt="Avatar"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
+                   {(avatarPreview || profile?.avatar) ? (
+                     <Image
+                       src={avatarPreview || profile?.avatar || ""}
+                       alt="Avatar"
+                       fill
+                       className="object-cover"
+                     />
+                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-zinc-100 text-zinc-400">
                       <User className="h-8 w-8" />
                     </div>

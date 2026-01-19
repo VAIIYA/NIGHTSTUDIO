@@ -7,6 +7,7 @@ import { Profile } from "@/types";
 import { getRandomProfiles } from "@/lib/server-actions";
 import { shortenAddress } from "@/lib/utils";
 import { Loader2, Users, TrendingUp } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CreatorsPage() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -30,10 +31,37 @@ export default function CreatorsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-peach-gradient flex items-center justify-center">
-        <div className="flex items-center gap-3 text-primary">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span className="text-[#121212]">Loading creators...</span>
+      <div className="min-h-screen bg-peach-gradient text-[#121212]">
+        {/* Header Skeleton */}
+        <div className="border-b border-primary/10 py-8 bg-white/50 backdrop-blur-sm">
+          <div className="max-w-7xl mx-auto px-6">
+            <div className="text-center">
+              <Skeleton className="h-12 w-64 mx-auto mb-4" />
+              <Skeleton className="h-6 w-96 mx-auto" />
+            </div>
+          </div>
+        </div>
+
+        {/* Creators Grid Skeleton */}
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="glass-card p-6">
+                <div className="mb-4">
+                  <Skeleton className="h-20 w-20 rounded-full mx-auto" />
+                </div>
+                <div className="text-center space-y-2">
+                  <Skeleton className="h-6 w-32 mx-auto" />
+                  <Skeleton className="h-4 w-16 mx-auto" />
+                  <Skeleton className="h-4 w-24 mx-auto" />
+                  <div className="flex justify-center gap-4 pt-4">
+                    <Skeleton className="h-4 w-12" />
+                    <Skeleton className="h-4 w-12" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -72,10 +100,10 @@ export default function CreatorsPage() {
                 <div className="glass-card p-6 hover:border-primary/20 transition-all duration-300 hover:scale-105 h-full flex flex-col items-center">
                   {/* Avatar */}
                   <div className="mb-4 relative">
-                    <div className="h-20 w-20 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden border-4 border-white shadow-sm group-hover:shadow-md transition-shadow">
-                      {profile.avatar ? (
-                        <img src={profile.avatar} alt={profile.username} className="w-full h-full object-cover" />
-                      ) : (
+                     <div className="relative h-20 w-20 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden border-4 border-white shadow-sm group-hover:shadow-md transition-shadow">
+                       {profile.avatar ? (
+                         <Image src={profile.avatar} alt={profile.username || 'Creator'} fill className="object-cover rounded-full" />
+                       ) : (
                         <span className="text-lg font-mono text-primary/80">
                           {shortenAddress(profile.wallet, 2)}
                         </span>

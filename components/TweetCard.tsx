@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useState, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Heart, MessageCircle, Repeat2, Share2, Pin, PinOff, Loader2, AlertTriangle, TrendingUp, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CommentsModal } from "./CommentsModal";
+const CommentsModal = dynamic(() => import('./CommentsModal').then(mod => mod.CommentsModal), { ssr: false });
 import { ReportButton } from "./ReportButton";
 import { Post } from "@/types";
 import { getPosts, getFollowingPosts } from "@/lib/server-actions";
