@@ -1,49 +1,109 @@
 
-import * as Client from '@web3-storage/w3up-client'
-import { StoreMemory } from '@web3-storage/w3up-client/stores/memory'
+export interface UploadResult {
+  cid: string;
+  url: string;
+  filename: string;
+  size: number;
+  type: string;
+}
 
-export async function uploadFile(file: File) {
-    try {
-        const client = await Client.create({ store: new StoreMemory() })
-        // In a real app we'd need to provision the client with a space
-        // For this demo/redesign we will use a temporary space or assume pre-configured in local storage if possible,
-        // but w3up requires email validation for new spaces. 
-        // To keep it simple for the user without complex auth flows in this UI overhaul:
-        // We might encounter issues if we don't have a registered space. 
-        // However, the prompt asked to "re-implement image uploading functionality using Storacha".
+export interface UploadProgress {
+  loaded: number;
+  total: number;
+  percentage: number;
+}
 
-        // NOTE: Real usage requires:
-        // 1. client.login(email)
-        // 2. client.setCurrentSpace(spaceDid)
+export type UploadProgressCallback = (progress: UploadProgress) => void;
 
-        // For now, we'll implement the upload function assuming the client can be initialized or mocked if auth is missing.
-        // If we can't easily do auth in the browser without user interaction, we might need a workaround or just structure it.
+export async function uploadFile(
+  file: File,
+  onProgress?: UploadProgressCallback
+): Promise<UploadResult> {
+  const formData = new FormData();
+  formData.append('file', file);
 
-        // Let's try to do a basic upload if possible, or return a mock URL if we can't authentiate automatically.
-        // Given the constraints, I will implement the standard flow but handle errors gracefully.
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
 
-        const space = await client.createSpace('nightstudio-space')
-        const myAccount = await client.login('demo@nightstudio.io') // This will wait for email confirmation which is bad for UX here
+    xhr.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable && onProgress) {
+        const progress: UploadProgress = {
+          loaded: event.loaded,
+          total: event.total,
+          percentage: Math.round((event.loaded / event.total) * 100),
+        };
+        onProgress(progress);
+      }
+    });
 
-        // WAITING FOR EMAIL CONFIRMATION IS A BLOCKER.
-        // I should check if there are other ways or if I missed something about 'Storacha' specifically vs 'Web3.Storage'.
-        // Storacha IS Web3.Storage new brand.
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const result = JSON.parse(xhr.responseText);
+          resolve(result);
+        } catch {
+          reject(new Error('Invalid response from server'));
+        }
+      } else {
+        try {
+          const error = JSON.parse(xhr.responseText);
+          reject(new Error(error.error || 'Upload failed'));
+        } catch {
+          reject(new Error(`Upload failed with status ${xhr.status}`));
+        }
+      }
+    });
 
-        // ALTERNATIVE: Use a simple IPFS gateway or just restore the binary upload if Storacha is too complex for a quick fix without credentials.
-        // But the user EXPLICITLY asked for Storacha.
+    xhr.addEventListener('error', () => {
+      reject(new Error('Network error during upload'));
+    });
 
-        // I'll implement a client wrapper that attempts to upload.
+    xhr.addEventListener('abort', () => {
+      reject(new Error('Upload cancelled'));
+    });
 
-        // For this specific task, if I cannot implement full auth flow, I'll document it. 
-        // BUT, the user likely wants it to WORK. 
+    xhr.open('POST', '/api/upload');
+    xhr.send(formData);
+  });
+}
 
-        // Maybe I can just use the previous logic if it worked? 
-        // The previous logic was "removed". 
+export async function uploadFileFetch(
+  file: File,
+  onProgress?: UploadProgressCallback
+): Promise<UploadResult> {
+  const formData = new FormData();
+  formData.append('file', file);
 
-        // Let's implement the file structure first.
-        return "https://placehold.co/400"
-    } catch (error) {
-        console.error("Storacha upload failed:", error)
-        throw error
-    }
+  const response = await fetch('/api/upload', {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Upload failed' }));
+    throw new Error(error.error || `Upload failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export function validateFile(file: File): { valid: boolean; error?: string } {
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  const maxSize = 10 * 1024 * 1024; // 10MB
+
+  if (!allowedTypes.includes(file.type)) {
+    return { 
+      valid: false, 
+      error: 'Invalid file type. Allowed: JPEG, PNG, GIF, WebP' 
+    };
+  }
+
+  if (file.size > maxSize) {
+    return { 
+      valid: false, 
+      error: 'File too large. Maximum size: 10MB' 
+    };
+  }
+
+  return { valid: true };
 }

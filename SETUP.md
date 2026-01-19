@@ -21,6 +21,10 @@ NEXT_PUBLIC_PLATFORM_WALLET=EpfmoiBoNFEofbACjZo1vpyqXUy5Fq9ZtPrGVwok5fb3
 # Default uses public RPC which is rate-limited
 # Recommended services: Helius, QuickNode, Alchemy, dRPC
 NEXT_PUBLIC_RPC_URL=https://api.mainnet-beta.solana.com
+
+# Required for image uploads via Storacha (w3up)
+# Get your space DID from https://web3.storage
+STORACHA_SPACE_DID=did:key:your-space-did-here
 ```
 
 ## 3. Generate PWA Icons

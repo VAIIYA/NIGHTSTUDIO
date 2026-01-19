@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, X, Upload, ImageIcon, User } from "lucide-react";
 import { OnboardingChecklist } from "@/components/OnboardingChecklist";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { uploadFile } from "@/lib/storacha";
+import { uploadFile, validateFile } from "@/lib/storacha";
 
 export default function EditProfilePage() {
   const router = useRouter();
@@ -35,6 +35,8 @@ export default function EditProfilePage() {
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{ type: 'avatar' | 'banner'; percentage: number } | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (!connected || !publicKey) {
@@ -73,6 +75,15 @@ export default function EditProfilePage() {
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const validation = validateFile(file);
+      if (!validation.valid) {
+        toast({
+          variant: "destructive",
+          title: "Invalid File",
+          description: validation.error,
+        });
+        return;
+      }
       setAvatarFile(file);
       const reader = new FileReader();
       reader.onload = (e) => setAvatarPreview(e.target?.result as string);
@@ -83,6 +94,15 @@ export default function EditProfilePage() {
   const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const validation = validateFile(file);
+      if (!validation.valid) {
+        toast({
+          variant: "destructive",
+          title: "Invalid File",
+          description: validation.error,
+        });
+        return;
+      }
       setBannerFile(file);
       const reader = new FileReader();
       reader.onload = (e) => setBannerPreview(e.target?.result as string);
@@ -104,42 +124,54 @@ export default function EditProfilePage() {
       // Upload images if changed
       if (avatarFile) {
         try {
-          // Toast for uploading
+          setIsUploading(true);
+          setUploadProgress({ type: 'avatar', percentage: 0 });
           toast({
             title: "Uploading Avatar...",
-            description: "Please wait while we upload your image to Storacha.",
+            description: "Please wait while we upload your image.",
           });
-          const result = await uploadFile(avatarFile);
-          avatarCid = result; // Assuming returns URL or CID
+          const result = await uploadFile(avatarFile, (progress) => {
+            setUploadProgress({ type: 'avatar', percentage: progress.percentage });
+          });
+          avatarCid = result.url;
+          setUploadProgress({ type: 'avatar', percentage: 100 });
         } catch (error) {
           console.error("Avatar upload failed:", error);
           toast({
             variant: "destructive",
             title: "Upload Failed",
-            description: "Could not upload avatar image to Storacha.",
+            description: error instanceof Error ? error.message : "Could not upload avatar image",
           });
-          // Continue saving profile without avatar update? 
-          // Or return? Let's continue but warn.
         }
       }
 
       if (bannerFile) {
         try {
+          setIsUploading(true);
+          setUploadProgress({ type: 'banner', percentage: 0 });
           toast({
             title: "Uploading Banner...",
-            description: "Please wait while we upload your banner to Storacha.",
+            description: "Please wait while we upload your banner.",
           });
-          const result = await uploadFile(bannerFile);
-          bannerCid = result;
+          const result = await uploadFile(bannerFile, (progress) => {
+            setUploadProgress({ type: 'banner', percentage: progress.percentage });
+          });
+          bannerCid = result.url;
+          setUploadProgress({ type: 'banner', percentage: 100 });
         } catch (error) {
           console.error("Banner upload failed:", error);
           toast({
             variant: "destructive",
             title: "Upload Failed",
-            description: "Could not upload banner image to Storacha.",
+            description: error instanceof Error ? error.message : "Could not upload banner image",
           });
         }
       }
+
+      setIsUploading(false);
+      setUploadProgress(null);
+
+      setIsSaving(true);
 
       // Update profile
       await updateProfile(publicKey.toString(), {
@@ -347,10 +379,16 @@ export default function EditProfilePage() {
               </Button>
               <Button
                 type="submit"
-                disabled={isSaving}
+                disabled={isSaving || isUploading}
                 className="flex-1"
               >
-                {isSaving ? (
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {uploadProgress?.type === 'avatar' ? 'Uploading Avatar...' : 'Uploading Banner...'}
+                    ({uploadProgress?.percentage}%)
+                  </>
+                ) : isSaving ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                     Saving...
