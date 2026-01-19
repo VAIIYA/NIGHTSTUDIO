@@ -1,23 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Logo } from "./Logo";
 import { WalletMultiButton } from "./WalletMultiButton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search } from "lucide-react";
+import { useDebounce } from "@/hooks/useDebounce";
 
 export function Navbar() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const debouncedQuery = useDebounce(searchQuery, 300);
+
+  useEffect(() => {
+    if (hasSubmitted && debouncedQuery.trim()) {
+      router.push(`/search?q=${encodeURIComponent(debouncedQuery.trim())}`);
+    }
+  }, [debouncedQuery, router, hasSubmitted]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      setHasSubmitted(true);
       router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setHasSubmitted(false);
+    }
+  }, [searchQuery]);
 
   return (
     <nav className="sticky top-0 z-40 w-full border-b border-primary/10 bg-white/80 backdrop-blur-md supports-[backdrop-filter]:bg-white/60">

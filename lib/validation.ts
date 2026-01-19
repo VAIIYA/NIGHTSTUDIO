@@ -121,11 +121,35 @@ export function validateData<T>(schema: z.ZodSchema<T>, data: unknown): T {
   }
 }
 
-// Sanitize string inputs
+// Sanitize string inputs using isomorphic-dompurify for XSS protection
+import DOMPurify from 'isomorphic-dompurify';
+
 export function sanitizeString(input: string): string {
-  return input
+  if (!input) return '';
+
+  return DOMPurify.sanitize(input, {
+    ALLOWED_TAGS: [], // Strip all HTML tags
+    ALLOWED_ATTR: [], // No attributes allowed
+    KEEP_CONTENT: true,
+    FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
+    FORBID_ATTR: ['onerror', 'onclick', 'onload', 'onmouseover', 'onload', 'onfocus', 'onblur']
+  })
     .trim()
-    .replace(/[<>]/g, '') // Remove potential HTML tags
     .replace(/\s+/g, ' ') // Normalize whitespace
     .slice(0, 1000); // Limit length
+}
+
+// Sanitize HTML content (allows basic formatting)
+export function sanitizeHtml(input: string): string {
+  if (!input) return '';
+
+  return DOMPurify.sanitize(input, {
+    ALLOWED_TAGS: ['b', 'i', 'u', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'blockquote', 'code'],
+    ALLOWED_ATTR: ['href', 'title', 'rel'],
+    ALLOW_DATA_ATTR: false,
+    FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed', 'form', 'input', 'button'],
+    FORBID_ATTR: ['onerror', 'onclick', 'onload', 'onmouseover', 'onfocus', 'onblur']
+  })
+    .trim()
+    .slice(0, 5000); // Limit length for posts
 }

@@ -29,7 +29,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Navbar />
             <div className="flex flex-1">
                 <DesktopSideNav />
-                <main className="flex-1 md:ml-64 pb-16 md:pb-0">
+                <main id="main-content" className="flex-1 md:ml-64 pb-16 md:pb-0" tabIndex={-1}>
                     {children}
                 </main>
             </div>

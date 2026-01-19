@@ -32,64 +32,81 @@ if (process.env.NODE_ENV === "development") {
 // separate module, the client can be shared across functions.
 export default clientPromise;
 
+interface IndexConfig {
+  collection: string;
+  index: Record<string, any>;
+  options?: Record<string, any>;
+}
+
+/**
+ * Initialize database indexes - call this once during app startup
+ */
+export async function initializeDatabase(): Promise<void> {
+  const client = await clientPromise;
+  const db = client.db();
+
+  const indexes: IndexConfig[] = [
+    // Posts collection indexes
+    { collection: "posts", index: { createdAt: -1 } },
+    { collection: "posts", index: { author: 1, createdAt: -1 } },
+    { collection: "posts", index: { id: 1 }, options: { unique: true } },
+    { collection: "posts", index: { content: 'text' } },
+
+    // Profiles collection indexes
+    { collection: "profiles", index: { wallet: 1 }, options: { unique: true } },
+    { collection: "profiles", index: { username: 1 }, options: { sparse: true, unique: true } },
+    { collection: "profiles", index: { displayName: 'text', bio: 'text' } },
+
+    // Likes collection indexes
+    { collection: "likes", index: { postId: 1, wallet: 1 }, options: { unique: true } },
+    { collection: "likes", index: { wallet: 1, createdAt: -1 } },
+
+    // Comments collection indexes
+    { collection: "comments", index: { postId: 1, createdAt: -1 } },
+    { collection: "comments", index: { author: 1, createdAt: -1 } },
+    { collection: "comments", index: { content: 'text' } },
+
+    // Follows collection indexes
+    { collection: "follows", index: { follower: 1, following: 1 }, options: { unique: true } },
+    { collection: "follows", index: { following: 1, createdAt: -1 } },
+
+    // Subscriptions collection indexes
+    { collection: "subscriptions", index: { subscriber: 1, creator: 1 }, options: { unique: true } },
+    { collection: "subscriptions", index: { creator: 1, createdAt: -1 } },
+
+    // Notifications collection indexes
+    { collection: "notifications", index: { recipient: 1, createdAt: -1 } },
+    { collection: "notifications", index: { recipient: 1, read: 1, createdAt: -1 } },
+
+    // Reports collection indexes
+    { collection: "reports", index: { reportedUser: 1, createdAt: -1 } },
+    { collection: "reports", index: { status: 1, createdAt: -1 } },
+
+    // Unlocks collection indexes
+    { collection: "unlocks", index: { postId: 1, wallet: 1 } },
+    { collection: "unlocks", index: { postId: 1 } },
+    { collection: "unlocks", index: { wallet: 1 } },
+  ];
+
+  console.log('Initializing database indexes...');
+
+  for (const { collection, index, options } of indexes) {
+    try {
+      await db.collection(collection).createIndex(index, options);
+    } catch (error) {
+      if (error instanceof Error && !error.message.includes('already exists')) {
+        console.warn(`Failed to create index on ${collection}:`, error.message);
+      }
+    }
+  }
+
+  console.log('Database indexes initialized');
+}
+
 /**
  * Get the database instance
  */
 export async function getDatabase(): Promise<Db> {
   const client = await clientPromise;
-  const db = client.db();
-  
-  // Create comprehensive indexes for better query performance
-  // These are idempotent - safe to call multiple times
-  try {
-    console.log('Creating database indexes...');
-
-    // Posts collection indexes
-    await db.collection("posts").createIndex({ createdAt: -1 });
-    await db.collection("posts").createIndex({ author: 1, createdAt: -1 });
-    await db.collection("posts").createIndex({ id: 1 }, { unique: true });
-    await db.collection("posts").createIndex({ content: 'text' });
-
-    // Profiles collection indexes
-    await db.collection("profiles").createIndex({ wallet: 1 }, { unique: true });
-    await db.collection("profiles").createIndex({ username: 1 }, { sparse: true, unique: true });
-    await db.collection("profiles").createIndex({ displayName: 'text', bio: 'text' });
-
-    // Likes collection indexes
-    await db.collection("likes").createIndex({ postId: 1, wallet: 1 }, { unique: true });
-    await db.collection("likes").createIndex({ wallet: 1, createdAt: -1 });
-
-    // Comments collection indexes
-    await db.collection("comments").createIndex({ postId: 1, createdAt: -1 });
-    await db.collection("comments").createIndex({ author: 1, createdAt: -1 });
-    await db.collection("comments").createIndex({ content: 'text' });
-
-    // Follows collection indexes
-    await db.collection("follows").createIndex({ follower: 1, following: 1 }, { unique: true });
-    await db.collection("follows").createIndex({ following: 1, createdAt: -1 });
-
-    // Subscriptions collection indexes
-    await db.collection("subscriptions").createIndex({ subscriber: 1, creator: 1 }, { unique: true });
-    await db.collection("subscriptions").createIndex({ creator: 1, createdAt: -1 });
-
-    // Notifications collection indexes
-    await db.collection("notifications").createIndex({ recipient: 1, createdAt: -1 });
-    await db.collection("notifications").createIndex({ recipient: 1, read: 1, createdAt: -1 });
-
-    // Reports collection indexes
-    await db.collection("reports").createIndex({ reportedUser: 1, createdAt: -1 });
-    await db.collection("reports").createIndex({ status: 1, createdAt: -1 });
-
-    // Existing unlocks indexes
-    await db.collection("unlocks").createIndex({ postId: 1, wallet: 1 });
-    await db.collection("unlocks").createIndex({ postId: 1 });
-    await db.collection("unlocks").createIndex({ wallet: 1 });
-
-    console.log('Database indexes created successfully');
-  } catch (error) {
-    // Indexes might already exist, ignore error
-    console.log("Index creation note:", error instanceof Error ? error.message : "Unknown error");
-  }
-  
-  return db;
+  return client.db();
 }

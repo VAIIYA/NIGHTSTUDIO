@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Heart, MessageCircle, Repeat2, Share2, Pin, PinOff, Loader2, AlertTriangle, TrendingUp, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,7 @@ interface TweetCardProps {
   className?: string;
 }
 
-export function TweetCard({ post, className }: TweetCardProps) {
+function TweetCardComponent({ post, className }: TweetCardProps) {
   const { publicKey, connected } = useWallet();
   const { toast } = useToast();
 
@@ -231,9 +231,14 @@ export function TweetCard({ post, className }: TweetCardProps) {
           {/* IPFS Images removed */}
 
           {/* Actions */}
-          <div className="flex items-center gap-6 mt-3">
+          <div className="flex items-center gap-6 mt-3" role="group" aria-label="Post actions">
             <CommentsModal postId={post.id} commentCount={post.comments}>
-              <Button variant="ghost" size="sm" className="gap-2 hover:bg-blue-500/10 hover:text-blue-500">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2 hover:bg-blue-500/10 hover:text-blue-500"
+                aria-label={`${post.comments} comments`}
+              >
                 <MessageCircle className="h-4 w-4" />
                 <span className="text-xs">{post.comments}</span>
               </Button>
@@ -249,6 +254,8 @@ export function TweetCard({ post, className }: TweetCardProps) {
               )}
               onClick={handleRepost}
               disabled={isReposting}
+              aria-label={isReposted ? `Un repost post by ${shortenAddress(post.author)}` : `Repost post by ${shortenAddress(post.author)}`}
+              aria-pressed={isReposted}
             >
               <Repeat2 className={cn("h-4 w-4", isReposted && "fill-current")} />
               <span className="text-xs">{repostsCount}</span>
@@ -264,6 +271,8 @@ export function TweetCard({ post, className }: TweetCardProps) {
               )}
               onClick={handleLike}
               disabled={isLiking}
+              aria-label={isLiked ? `Unlike post by ${shortenAddress(post.author)}` : `Like post by ${shortenAddress(post.author)}`}
+              aria-pressed={isLiked}
             >
               <Heart className={cn("h-4 w-4", isLiked && "fill-current")} />
               <span className="text-xs">{likesCount}</span>
@@ -297,4 +306,6 @@ export function TweetCard({ post, className }: TweetCardProps) {
     </article>
   );
 }
+
+export const TweetCard = React.memo(TweetCardComponent);
 
