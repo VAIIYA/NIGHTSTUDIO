@@ -12,6 +12,7 @@ import { getProfile, updateProfile } from "@/lib/server-actions";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, X } from "lucide-react";
 import { OnboardingChecklist } from "@/components/OnboardingChecklist";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 export default function EditProfilePage() {
   const router = useRouter();
@@ -148,109 +149,117 @@ export default function EditProfilePage() {
 
   return (
     <div className="max-w-2xl mx-auto p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Edit Profile</h1>
-        <p className="text-muted-foreground">Update your profile information and photos</p>
-      </div>
+      <Card className="glass-card">
+        <CardHeader>
+          <CardTitle>Edit Profile</CardTitle>
+          <CardDescription>Update your profile information.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <OnboardingChecklist profile={profile} />
 
-      <OnboardingChecklist profile={profile} />
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Photo uploads disabled (IPFS removed) */}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Photo uploads disabled (IPFS removed) */}
+            {/* Display Name */}
+            <div>
+              <Label htmlFor="displayName">Display Name</Label>
+              <Input
+                id="displayName"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Your display name"
+                maxLength={50}
+                className="bg-secondary/20 border-primary/10 focus:border-primary/50"
+              />
+            </div>
 
-        {/* Display Name */}
-        <div>
-          <Label htmlFor="displayName">Display Name</Label>
-          <Input
-            id="displayName"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="Your display name"
-            maxLength={50}
-          />
-        </div>
+            {/* Username */}
+            <div>
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="@username"
+                maxLength={30}
+                className="bg-secondary/20 border-primary/10 focus:border-primary/50"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Choose a unique username (optional)
+              </p>
+            </div>
 
-        {/* Username */}
-        <div>
-          <Label htmlFor="username">Username</Label>
-          <Input
-            id="username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="@username"
-            maxLength={30}
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            Choose a unique username (optional)
-          </p>
-        </div>
+            {/* Bio */}
+            <div>
+              <Label htmlFor="bio">Bio</Label>
+              <Textarea
+                id="bio"
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="Tell us about yourself..."
+                maxLength={160}
+                rows={3}
+                className="bg-secondary/20 border-primary/10 focus:border-primary/50"
+              />
+              <p className="text-xs text-muted-foreground mt-1 text-right">
+                {bio.length}/160
+              </p>
+            </div>
 
-        {/* Bio */}
-        <div>
-          <Label htmlFor="bio">Bio</Label>
-          <Textarea
-            id="bio"
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            placeholder="Tell us about yourself..."
-            maxLength={160}
-            rows={3}
-          />
-          <p className="text-xs text-muted-foreground mt-1 text-right">
-            {bio.length}/160
-          </p>
-        </div>
+            {/* Location */}
+            <div>
+              <Label htmlFor="location">Location</Label>
+              <Input
+                id="location"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                placeholder="City, Country"
+                maxLength={30}
+                className="bg-secondary/20 border-primary/10 focus:border-primary/50"
+              />
+            </div>
 
-        {/* Location */}
-        <div>
-          <Label htmlFor="location">Location</Label>
-          <Input
-            id="location"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="City, Country"
-            maxLength={30}
-          />
-        </div>
+            {/* Website */}
+            <div>
+              <Label htmlFor="website">Website</Label>
+              <Input
+                id="website"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                placeholder="https://yourwebsite.com"
+                type="url"
+                className="bg-secondary/20 border-primary/10 focus:border-primary/50"
+              />
+            </div>
 
-        {/* Website */}
-        <div>
-          <Label htmlFor="website">Website</Label>
-          <Input
-            id="website"
-            value={website}
-            onChange={(e) => setWebsite(e.target.value)}
-            placeholder="https://yourwebsite.com"
-            type="url"
-          />
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex gap-4 pt-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => router.back()}
-            className="flex-1"
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            disabled={isSaving}
-            className="flex-1"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              "Save Profile"
-            )}
-          </Button>
-        </div>
-      </form>
-    </div>
+            {/* Action Buttons */}
+            <div className="flex gap-4 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.back()}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSaving}
+                className="flex-1"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Profile"
+                )}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div >
   );
 }
