@@ -26,6 +26,8 @@
     "@solana/web3.js": "^1.95.4",
     "@tanstack/react-query": "^5.0.0",
     "@types/ws": "^8.18.1",
+    "@web3-storage/access": "^20.3.0",
+    "@web3-storage/w3up-client": "^17.3.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "express-rate-limit": "^8.2.1",

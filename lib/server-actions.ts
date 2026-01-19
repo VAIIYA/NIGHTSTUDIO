@@ -246,6 +246,8 @@ export async function updateProfile(
     displayName: updates.displayName ? sanitizeString(updates.displayName) : updates.displayName,
     bio: updates.bio ? sanitizeString(updates.bio) : updates.bio,
     username: updates.username, // Already validated in schema if provided
+    avatar: updates.avatar,
+    banner: updates.banner,
   };
 
   const db = await getDatabase();

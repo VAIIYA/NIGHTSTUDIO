@@ -12,7 +12,7 @@ export function Logo({ className = "h-8 w-8" }: { className?: string }) {
           className={`${className} rounded-lg`}
         />
       </div>
-      <span className="ml-3 text-xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-white/70">
+      <span className="ml-3 text-xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
         NIGHTSTUDIO
       </span>
     </div>

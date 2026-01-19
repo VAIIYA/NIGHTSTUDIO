@@ -10,9 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Profile } from "@/types";
 import { getProfile, updateProfile } from "@/lib/server-actions";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, X } from "lucide-react";
+import { Loader2, X, Upload, ImageIcon, User } from "lucide-react";
 import { OnboardingChecklist } from "@/components/OnboardingChecklist";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { uploadFile } from "@/lib/storacha";
 
 export default function EditProfilePage() {
   const router = useRouter();
@@ -96,9 +97,48 @@ export default function EditProfilePage() {
     setIsSaving(true);
 
     try {
-      // Image uploads disabled (IPFS removed)
       let avatarCid = undefined;
       let bannerCid = undefined;
+
+      // Upload images if changed
+      if (avatarFile) {
+        try {
+          // Toast for uploading
+          toast({
+            title: "Uploading Avatar...",
+            description: "Please wait while we upload your image to Storacha.",
+          });
+          const result = await uploadFile(avatarFile);
+          avatarCid = result; // Assuming returns URL or CID
+        } catch (error) {
+          console.error("Avatar upload failed:", error);
+          toast({
+            variant: "destructive",
+            title: "Upload Failed",
+            description: "Could not upload avatar image to Storacha.",
+          });
+          // Continue saving profile without avatar update? 
+          // Or return? Let's continue but warn.
+        }
+      }
+
+      if (bannerFile) {
+        try {
+          toast({
+            title: "Uploading Banner...",
+            description: "Please wait while we upload your banner to Storacha.",
+          });
+          const result = await uploadFile(bannerFile);
+          bannerCid = result;
+        } catch (error) {
+          console.error("Banner upload failed:", error);
+          toast({
+            variant: "destructive",
+            title: "Upload Failed",
+            description: "Could not upload banner image to Storacha.",
+          });
+        }
+      }
 
       // Update profile
       await updateProfile(publicKey.toString(), {
@@ -107,6 +147,8 @@ export default function EditProfilePage() {
         bio: bio.trim() || undefined,
         website: website.trim() || undefined,
         location: location.trim() || undefined,
+        avatar: avatarCid,
+        banner: bannerCid,
       });
 
       toast({
@@ -158,7 +200,65 @@ export default function EditProfilePage() {
           <OnboardingChecklist profile={profile} />
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Photo uploads disabled (IPFS removed) */}
+            {/* Banner Upload */}
+            <div className="relative group">
+              <Label htmlFor="banner-upload" className="cursor-pointer block">
+                <div className="w-full h-32 md:h-48 rounded-lg overflow-hidden bg-secondary/20 border-2 border-dashed border-primary/20 hover:border-primary/50 transition-colors flex items-center justify-center relative">
+                  {(bannerPreview || profile?.banner) ? (
+                    <img
+                      src={bannerPreview || profile?.banner || ""}
+                      alt="Banner"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-center text-muted-foreground">
+                      <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <span className="text-sm">Upload Banner</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                    <Upload className="h-6 w-6 mr-2" />
+                    <span className="font-medium">Change Banner</span>
+                  </div>
+                </div>
+              </Label>
+              <Input
+                id="banner-upload"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleBannerChange}
+              />
+            </div>
+
+            {/* Avatar Upload */}
+            <div className="relative -mt-16 ml-4 w-24 h-24 md:w-32 md:h-32 group">
+              <Label htmlFor="avatar-upload" className="cursor-pointer block relative">
+                <div className="w-full h-full rounded-full overflow-hidden border-4 border-white bg-secondary/20 shadow-lg relative">
+                  {(avatarPreview || profile?.avatar) ? (
+                    <img
+                      src={avatarPreview || profile?.avatar || ""}
+                      alt="Avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-zinc-100 text-zinc-400">
+                      <User className="h-8 w-8" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white rounded-full">
+                    <Upload className="h-5 w-5" />
+                  </div>
+                </div>
+              </Label>
+              <Input
+                id="avatar-upload"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarChange}
+              />
+            </div>
 
             {/* Display Name */}
             <div>

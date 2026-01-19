@@ -26,6 +26,8 @@ export interface Profile {
   bio?: string;
   website?: string;
   location?: string;
+  avatar?: string;
+  banner?: string;
   verified?: boolean;
   followers: number;
   following: number;
