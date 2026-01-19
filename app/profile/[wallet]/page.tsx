@@ -53,149 +53,160 @@ export default function ProfilePage() {
   return (
     <div className="max-w-2xl mx-auto">
       {/* Profile Header */}
-      <div className="border-b border-border p-6">
-        {/* Banner */}
-        {/* Banner removed (IPFS removed) */}
+      <div className="glass-card mb-6 overflow-hidden">
+        <div className="p-6">
+          {/* Banner */}
+          {profile?.banner && (
+            <div className="h-32 md:h-48 rounded-lg overflow-hidden mb-4 relative">
+              <img src={profile.banner} alt="Banner" className="w-full h-full object-cover" />
+            </div>
+          )}
 
-        <div className="flex items-start gap-4">
-          {/* Avatar */}
-          <div className="h-20 w-20 rounded-full bg-primary/20 flex items-center justify-center border-4 border-background relative z-10">
-            <span className="text-lg font-mono">
-              {shortenAddress(wallet, 3)}
-            </span>
-          </div>
-
-          {/* Profile Info */}
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <h1 className="text-2xl font-bold">
-                  {profile?.displayName || profile?.username || shortenAddress(wallet)}
-                </h1>
-                {profile?.username && (
-                  <p className="text-sm text-muted-foreground">@{profile.username}</p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                {isOwnProfile ? (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => router.push('/profile/edit')}
-                      className="flex items-center gap-2"
-                    >
-                      <Edit className="h-4 w-4" />
-                      Edit Profile
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => router.push(`/profile/${wallet}/subscriptions`)}
-                      className="flex items-center gap-2"
-                    >
-                      <Settings className="h-4 w-4" />
-                      Subscriptions
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => router.push(`/profile/${wallet}/analytics`)}
-                      className="flex items-center gap-2"
-                    >
-                      <TrendingUp className="h-4 w-4" />
-                      Analytics
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <FollowButton
-                      targetWallet={wallet}
-                      onFollowChange={(isFollowing) => {
-                        if (profile) {
-                          setProfile({
-                            ...profile,
-                            followers: profile.followers + (isFollowing ? 1 : -1)
-                          });
-                        }
-                      }}
-                    />
-                    <SubscribeButton creator={wallet} />
-                  </>
-                )}
-              </div>
+          <div className="flex items-start gap-4">
+            {/* Avatar */}
+            <div className="h-20 w-20 rounded-full bg-primary/20 flex items-center justify-center border-4 border-white shadow-md relative z-10 flex-shrink-0">
+              {profile?.avatar ? (
+                <img src={profile.avatar} alt="Avatar" className="w-full h-full rounded-full object-cover" />
+              ) : (
+                <span className="text-lg font-mono text-primary/80">
+                  {shortenAddress(wallet, 3)}
+                </span>
+              )}
             </div>
 
-            {/* Bio */}
-            {profile?.bio && (
-              <p className="text-sm mb-3">{profile.bio}</p>
-            )}
-
-            {/* Profile Details */}
-            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-3">
-              {profile?.location && (
-                <div className="flex items-center gap-1">
-                  <MapPin className="h-4 w-4" />
-                  {profile.location}
-                </div>
-              )}
-              {profile?.website && (
-                <div className="flex items-center gap-1">
-                  <LinkIcon className="h-4 w-4" />
-                  <a
-                    href={profile.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline"
-                  >
-                    {profile.website.replace(/^https?:\/\//, '')}
-                  </a>
-                </div>
-              )}
-              <div className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
-                Joined {new Date(profile?.createdAt || Date.now()).toLocaleDateString('en-US', {
-                  month: 'long',
-                  year: 'numeric'
-                })}
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div className="flex gap-6 text-sm">
-              <button
-                onClick={() => router.push(`/profile/${wallet}/following`)}
-                className="hover:underline"
-              >
-                <span className="font-bold text-foreground">{profile?.following || 0}</span>
-                <span className="text-muted-foreground ml-1">Following</span>
-              </button>
-              <button
-                onClick={() => router.push(`/profile/${wallet}/followers`)}
-                className="hover:underline"
-              >
-                <span className="font-bold text-foreground">{profile?.followers || 0}</span>
-                <span className="text-muted-foreground ml-1">Followers</span>
-              </button>
-              <div>
-                <span className="font-bold text-foreground">{posts.length}</span>
-                <span className="text-muted-foreground ml-1">Posts</span>
-              </div>
-              {isOwnProfile && (
+            {/* Profile Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
                 <div>
-                  <span className="font-bold text-foreground">{profile?.earnings || 0}</span>
-                  <span className="text-muted-foreground ml-1">USDC Earned</span>
+                  <h1 className="text-2xl font-bold truncate">
+                    {profile?.displayName || profile?.username || shortenAddress(wallet)}
+                  </h1>
+                  {profile?.username && (
+                    <p className="text-sm text-primary font-medium">@{profile.username}</p>
+                  )}
                 </div>
+                <div className="flex gap-2 flex-wrap">
+                  {isOwnProfile ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push('/profile/edit')}
+                        className="flex items-center gap-2 rounded-full border-primary/20 hover:border-primary/50 hover:bg-primary/5"
+                      >
+                        <Edit className="h-4 w-4" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/profile/${wallet}/subscriptions`)}
+                        className="flex items-center gap-2 rounded-full border-primary/20 hover:border-primary/50 hover:bg-primary/5"
+                      >
+                        <Settings className="h-4 w-4" />
+                        Subs
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/profile/${wallet}/analytics`)}
+                        className="flex items-center gap-2 rounded-full border-primary/20 hover:border-primary/50 hover:bg-primary/5"
+                      >
+                        <TrendingUp className="h-4 w-4" />
+                        Data
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <FollowButton
+                        targetWallet={wallet}
+                        onFollowChange={(isFollowing) => {
+                          if (profile) {
+                            setProfile({
+                              ...profile,
+                              followers: profile.followers + (isFollowing ? 1 : -1)
+                            });
+                          }
+                        }}
+                      />
+                      <SubscribeButton creator={wallet} />
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Bio */}
+              {profile?.bio && (
+                <p className="text-sm mb-3 text-muted-foreground">{profile.bio}</p>
               )}
+
+              {/* Profile Details */}
+              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-4">
+                {profile?.location && (
+                  <div className="flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5" />
+                    {profile.location}
+                  </div>
+                )}
+                {profile?.website && (
+                  <div className="flex items-center gap-1">
+                    <LinkIcon className="h-3.5 w-3.5" />
+                    <a
+                      href={profile.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      {profile.website.replace(/^https?:\/\//, '')}
+                    </a>
+                  </div>
+                )}
+                <div className="flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />
+                  Joined {new Date(profile?.createdAt || Date.now()).toLocaleDateString('en-US', {
+                    month: 'short',
+                    year: 'numeric'
+                  })}
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div className="flex gap-6 text-sm border-t border-primary/5 pt-3">
+                <button
+                  onClick={() => router.push(`/profile/${wallet}/following`)}
+                  className="hover:text-primary transition-colors"
+                >
+                  <span className="font-bold text-foreground">{profile?.following || 0}</span>
+                  <span className="text-muted-foreground ml-1">Following</span>
+                </button>
+                <button
+                  onClick={() => router.push(`/profile/${wallet}/followers`)}
+                  className="hover:text-primary transition-colors"
+                >
+                  <span className="font-bold text-foreground">{profile?.followers || 0}</span>
+                  <span className="text-muted-foreground ml-1">Followers</span>
+                </button>
+                <div>
+                  <span className="font-bold text-foreground">{posts.length}</span>
+                  <span className="text-muted-foreground ml-1">Posts</span>
+                </div>
+                {isOwnProfile && (
+                  <div>
+                    <span className="font-bold text-foreground">{profile?.earnings || 0}</span>
+                    <span className="text-muted-foreground ml-1">USDC</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Wallet Address */}
-        <div className="mt-4 pt-4 border-t border-border">
-          <p className="text-xs text-muted-foreground font-mono break-all">
-            Wallet: {wallet}
-          </p>
+          {/* Wallet Address */}
+          <div className="mt-4 pt-3 border-t border-primary/5 text-center">
+            <p className="text-xs text-muted-foreground/60 font-mono flex items-center justify-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-green-500"></span>
+              {wallet}
+            </p>
+          </div>
         </div>
       </div>
 

@@ -391,7 +391,8 @@ export default function SearchPage() {
                 </div>
               )}   </TabsContent>
           </Tabs>
-          {
+        )}
+        {
           hasSearched && !results && !isLoading && (
             <div className="text-center py-12">
               <Search className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
@@ -399,6 +400,7 @@ export default function SearchPage() {
             </div>
           )
         }
-      </div >
-      );
+      </div>
+    </div>
+  );
 }

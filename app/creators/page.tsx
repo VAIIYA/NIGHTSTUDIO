@@ -30,25 +30,25 @@ export default function CreatorsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="flex items-center gap-3">
+      <div className="min-h-screen bg-peach-gradient flex items-center justify-center">
+        <div className="flex items-center gap-3 text-primary">
           <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading creators...</span>
+          <span className="text-[#121212]">Loading creators...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className="min-h-screen bg-peach-gradient text-[#121212]">
       {/* Header */}
-      <div className="border-b border-white/10 py-8">
+      <div className="border-b border-primary/10 py-8 bg-white/50 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">
+            <h1 className="text-4xl md:text-5xl font-bold mb-4 font-outfit tracking-tight text-[#121212]">
               Discover Creators
             </h1>
-            <p className="text-xl text-zinc-400 max-w-2xl mx-auto">
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               Connect with talented creators from around the world. Support their work and unlock exclusive content.
             </p>
           </div>
@@ -59,7 +59,7 @@ export default function CreatorsPage() {
       <div className="max-w-7xl mx-auto px-6 py-12">
         {profiles.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-zinc-400">No creators found. Be the first to join!</p>
+            <p className="text-muted-foreground">No creators found. Be the first to join!</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -69,39 +69,43 @@ export default function CreatorsPage() {
                 href={`/profile/${profile.wallet}`}
                 className="group"
               >
-                <div className="bg-zinc-900/50 backdrop-blur-sm border border-white/10 rounded-xl p-6 hover:border-white/20 transition-all duration-300 hover:scale-105">
+                <div className="glass-card p-6 hover:border-primary/20 transition-all duration-300 hover:scale-105 h-full flex flex-col items-center">
                   {/* Avatar */}
-                  <div className="flex items-center justify-center mb-4">
-                    <div className="h-20 w-20 rounded-full bg-gradient-to-br from-[#9945FF] to-[#14F195] flex items-center justify-center border-4 border-zinc-800 group-hover:border-white/20 transition-colors">
-                      <span className="text-white font-mono text-sm">
-                        {shortenAddress(profile.wallet, 2)}
-                      </span>
+                  <div className="mb-4 relative">
+                    <div className="h-20 w-20 rounded-full bg-primary/20 flex items-center justify-center overflow-hidden border-4 border-white shadow-sm group-hover:shadow-md transition-shadow">
+                      {profile.avatar ? (
+                        <img src={profile.avatar} alt={profile.username} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-lg font-mono text-primary/80">
+                          {shortenAddress(profile.wallet, 2)}
+                        </span>
+                      )}
                     </div>
                   </div>
 
                   {/* Profile Info */}
-                  <div className="text-center">
-                    <h3 className="font-semibold text-lg mb-1 truncate">
+                  <div className="text-center w-full">
+                    <h3 className="font-bold text-lg mb-1 truncate text-[#121212]">
                       {profile.displayName || profile.username || shortenAddress(profile.wallet)}
                     </h3>
                     {profile.username && (
-                      <p className="text-sm text-zinc-400 mb-2">@{profile.username}</p>
+                      <p className="text-sm text-primary mb-2 font-medium">@{profile.username}</p>
                     )}
                     {profile.bio && (
-                      <p className="text-sm text-zinc-300 mb-3 line-clamp-2">
+                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2 h-10">
                         {profile.bio}
                       </p>
                     )}
 
                     {/* Stats */}
-                    <div className="flex items-center justify-center gap-4 text-sm text-zinc-400">
+                    <div className="flex items-center justify-center gap-4 text-sm text-[#121212]/70 pt-4 border-t border-primary/5 w-full mt-auto">
                       <div className="flex items-center gap-1">
-                        <Users className="h-4 w-4" />
-                        <span>{profile.followers || 0}</span>
+                        <Users className="h-4 w-4 text-primary" />
+                        <span className="font-semibold">{profile.followers || 0}</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <TrendingUp className="h-4 w-4" />
-                        <span>{profile.posts || 0}</span>
+                        <TrendingUp className="h-4 w-4 text-accent" />
+                        <span className="font-semibold">{profile.posts || 0}</span>
                       </div>
                     </div>
                   </div>
@@ -115,7 +119,7 @@ export default function CreatorsPage() {
         <div className="text-center mt-12">
           <button
             onClick={() => window.location.reload()}
-            className="px-6 py-3 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors font-semibold"
+            className="px-8 py-3 rounded-full bg-white border border-primary/20 text-primary hover:bg-primary hover:text-white transition-all duration-300 font-semibold shadow-sm hover:shadow-lg hover:-translate-y-0.5"
           >
             Discover More Creators
           </button>

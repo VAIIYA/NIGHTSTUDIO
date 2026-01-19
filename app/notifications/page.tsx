@@ -152,20 +152,18 @@ export default function NotificationsPage() {
             return (
               <div
                 key={notification.id}
-                className={`border border-border rounded-lg p-4 hover:bg-accent/5 transition-colors cursor-pointer ${
-                  !notification.isRead ? 'bg-blue-500/5 border-blue-500/20' : ''
-                }`}
+                className={`glass-card p-4 hover:border-primary/30 transition-all cursor-pointer ${!notification.isRead ? 'border-primary/40 bg-primary/5 shadow-primary/10' : ''
+                  }`}
                 onClick={() => handleNotificationClick(notification)}
               >
                 <div className="flex items-start gap-3">
-                  <div className={`p-2 rounded-full ${
-                    notification.type === 'like' ? 'bg-red-500/10 text-red-500' :
-                    notification.type === 'comment' ? 'bg-blue-500/10 text-blue-500' :
-                    notification.type === 'follow' ? 'bg-green-500/10 text-green-500' :
-                    notification.type === 'unlock' ? 'bg-purple-500/10 text-purple-500' :
-                    notification.type === 'subscription' ? 'bg-yellow-500/10 text-yellow-500' :
-                    'bg-orange-500/10 text-orange-500'
-                  }`}>
+                  <div className={`p-2 rounded-full ${notification.type === 'like' ? 'bg-red-500/10 text-red-500' :
+                      notification.type === 'comment' ? 'bg-blue-500/10 text-blue-500' :
+                        notification.type === 'follow' ? 'bg-green-500/10 text-green-500' :
+                          notification.type === 'unlock' ? 'bg-purple-500/10 text-purple-500' :
+                            notification.type === 'subscription' ? 'bg-yellow-500/10 text-yellow-500' :
+                              'bg-orange-500/10 text-orange-500'
+                    }`}>
                     <Icon className="h-4 w-4" />
                   </div>
 
