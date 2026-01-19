@@ -23,11 +23,7 @@ const REPORTS_COLLECTION = "reports";
 export async function createPost(data: {
   author: string;
   content: string;
-  imageBlurred?: string;
-  imageOriginal?: string;
   imagePrice?: number;
-  ipnsBlurred?: string;
-  ipnsOriginal?: string;
 }): Promise<Post> {
   // Validate and sanitize input
   const validatedData = validateData(CreatePostSchema, {
@@ -42,11 +38,7 @@ export async function createPost(data: {
     id: `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     author: validatedData.author,
     content: validatedData.content,
-    imageBlurred: validatedData.imageBlurred,
-    imageOriginal: validatedData.imageOriginal,
     imagePrice: validatedData.imagePrice,
-    ipnsBlurred: data.ipnsBlurred,
-    ipnsOriginal: data.ipnsOriginal,
     createdAt: Date.now(),
     likes: 0,
     comments: 0,
@@ -254,8 +246,6 @@ export async function updateProfile(
     displayName: updates.displayName ? sanitizeString(updates.displayName) : updates.displayName,
     bio: updates.bio ? sanitizeString(updates.bio) : updates.bio,
     username: updates.username, // Already validated in schema if provided
-    ipnsAvatar: updates.ipnsAvatar,
-    ipnsBanner: updates.ipnsBanner,
   };
 
   const db = await getDatabase();

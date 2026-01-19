@@ -24,16 +24,6 @@ export function OnboardingChecklist({ profile }: OnboardingChecklistProps) {
       label: "Add bio description",
       completed: !!profile?.bio?.trim(),
     },
-    {
-      id: "avatar",
-      label: "Upload profile avatar",
-      completed: !!profile?.avatar,
-    },
-    {
-      id: "banner",
-      label: "Upload profile banner",
-      completed: !!profile?.banner,
-    },
   ];
 
   const completedCount = checklistItems.filter(item => item.completed).length;

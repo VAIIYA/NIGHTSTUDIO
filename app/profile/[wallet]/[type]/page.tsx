@@ -125,17 +125,9 @@ export default function FollowListPage() {
                 >
                   {/* Avatar */}
                   <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center">
-                    {profile.avatar ? (
-                      <img
-                        src={`https://ipfs.io/ipfs/${profile.avatar}`}
-                        alt="Profile"
-                        className="h-full w-full rounded-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-sm font-mono">
-                        {shortenAddress(profile.wallet, 2)}
-                      </span>
-                    )}
+                    <span className="text-sm font-mono">
+                      {shortenAddress(profile.wallet, 2)}
+                    </span>
                   </div>
 
                   {/* Profile Info */}

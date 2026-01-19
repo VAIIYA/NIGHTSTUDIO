@@ -4,8 +4,6 @@ import { z } from 'zod';
 export const CreatePostSchema = z.object({
   author: z.string().min(32).max(44), // Solana wallet address length
   content: z.string().min(1).max(500).trim(),
-  imageBlurred: z.string().url().optional(),
-  imageOriginal: z.string().url().optional(),
   imagePrice: z.number().min(0).optional(),
 });
 
@@ -21,8 +19,6 @@ export const CreateProfileSchema = z.object({
   displayName: z.string().min(1).max(50).trim().optional(),
   username: z.string().regex(/^[a-zA-Z0-9_]+$/).min(3).max(20).optional(),
   bio: z.string().max(160).trim().optional(),
-  avatar: z.string().url().optional(),
-  banner: z.string().url().optional(),
 });
 
 export const UpdateProfileSchema = z.object({
@@ -30,8 +26,6 @@ export const UpdateProfileSchema = z.object({
   displayName: z.string().min(1).max(50).trim().optional(),
   username: z.string().regex(/^[a-zA-Z0-9_]+$/).min(3).max(20).optional(),
   bio: z.string().max(160).trim().optional(),
-  avatar: z.string().url().optional(),
-  banner: z.string().url().optional(),
 });
 
 // Comment validation schemas

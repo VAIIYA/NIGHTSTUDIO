@@ -20,7 +20,7 @@ export function Navbar() {
   };
 
   return (
-    <nav className="sticky top-0 z-40 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <nav className="sticky top-0 z-40 w-full border-b border-primary/10 bg-white/80 backdrop-blur-md supports-[backdrop-filter]:bg-white/60">
       <div className="container flex h-14 items-center justify-between px-4 gap-4">
         <div className="flex items-center gap-6">
           <Logo />
@@ -30,14 +30,14 @@ export function Navbar() {
         </div>
 
         {/* Desktop Search */}
-        <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md">
+        <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md group">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors h-4 w-4" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search users..."
-              className="pl-10"
+              className="pl-10 bg-secondary/50 border-secondary group-hover:border-primary/30 focus:border-primary transition-all rounded-full"
             />
           </div>
         </form>

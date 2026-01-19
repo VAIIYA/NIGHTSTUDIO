@@ -4,29 +4,29 @@ import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { WalletMultiButton } from "@/components/WalletMultiButton";
 import { ArrowRight, CheckCircle2, Zap, Shield } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export function LandingPage() {
     return (
-        <div className="min-h-screen bg-black text-white overflow-hidden selection:bg-[#9945FF] selection:text-white">
+        <div className="min-h-screen bg-peach-gradient text-[#121212] overflow-hidden selection:bg-primary selection:text-white">
             {/* Background Gradients */}
             <div className="fixed inset-0 z-0 pointer-events-none">
-                <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-[#9945FF]/20 rounded-full blur-[120px]" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-[#14F195]/10 rounded-full blur-[120px]" />
+                <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-primary/20 rounded-full blur-[120px]" />
+                <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-accent/10 rounded-full blur-[120px]" />
             </div>
 
             {/* Navbar */}
             <header className="relative z-10 container mx-auto px-6 py-6 flex items-center justify-between">
                 <Logo />
-                <div className="hidden md:flex items-center gap-8 text-sm font-medium text-white/70">
-                    <a href="#features" className="hover:text-white transition-colors">Features</a>
-                    <a href="/creators" className="hover:text-white transition-colors">Creators</a>
-                    <a href="/about" className="hover:text-white transition-colors">About</a>
+                <div className="hidden md:flex items-center gap-8 text-sm font-semibold text-[#121212]/70">
+                    <a href="#features" className="hover:text-primary transition-colors">Features</a>
+                    <a href="/creators" className="hover:text-primary transition-colors">Creators</a>
+                    <a href="/about" className="hover:text-primary transition-colors">About</a>
                 </div>
                 <div className="hidden md:block">
-                    {/* Placeholder for standard button if needed, but we use the main connect button in hero */}
-                    <button className="px-6 py-2 rounded-full border border-white/10 hover:bg-white/5 transition-colors text-sm font-semibold">
+                    <Button variant="outline" className="rounded-full border-[#121212]/10 hover:bg-primary/5 text-sm font-bold">
                         Learn More
-                    </button>
+                    </Button>
                 </div>
             </header>
 
@@ -37,41 +37,41 @@ export function LandingPage() {
 
                         {/* Left Content */}
                         <div className="flex-1 text-center lg:text-left space-y-8">
-                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-sm font-medium text-[#14F195]">
+                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-sm font-bold text-primary">
                                 <Zap className="h-4 w-4 fill-current" />
                                 <span>Powered by Solana</span>
                             </div>
 
-                            <h1 className="text-5xl lg:text-7xl font-bold tracking-tight leading-[1.1]">
-                                <span className="block">Be You.</span>
-                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#9945FF] to-[#14F195]">
-                                    Without Limits.
+                            <h1 className="text-6xl lg:text-8xl font-bold tracking-tight leading-[1] font-outfit">
+                                <span className="block mb-2">Social.</span>
+                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-accent">
+                                    Redefined.
                                 </span>
                             </h1>
 
-                            <p className="text-xl text-zinc-400 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-                                NightStudio is the next-generation social platform built on Solana.
-                                Unlock exclusive content, connect with creators, and earn directly from day one.
+                            <p className="text-xl text-[#121212]/60 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-medium">
+                                NightStudio is a premium social experience built on Solana.
+                                Connect with the world, share without limits, and own your digital presence.
                             </p>
 
                             <div className="flex flex-col sm:flex-row items-center gap-4 justify-center lg:justify-start">
                                 <div className="scale-110">
                                     <WalletMultiButton />
                                 </div>
-                                <button className="px-8 py-3.5 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-colors font-semibold flex items-center gap-2 group">
-                                    Explore Features
+                                <Button variant="ghost" className="rounded-full hover:bg-primary/10 text-primary font-bold flex items-center gap-2 group">
+                                    Explore Creators
                                     <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                                </button>
+                                </Button>
                             </div>
 
-                            <div className="pt-8 flex items-center justify-center lg:justify-start gap-8 text-sm text-zinc-500 font-medium">
+                            <div className="pt-8 flex items-center justify-center lg:justify-start gap-8 text-sm text-[#121212]/50 font-bold">
                                 <div className="flex items-center gap-2">
-                                    <CheckCircle2 className="h-4 w-4 text-[#14F195]" />
-                                    <span>Instant Payouts</span>
+                                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                                    <span>Direct Payouts</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <Shield className="h-4 w-4 text-[#9945FF]" />
-                                    <span>Censorship Resistant</span>
+                                    <Shield className="h-4 w-4 text-accent" />
+                                    <span>Own Your Content</span>
                                 </div>
                             </div>
                         </div>
@@ -79,9 +79,9 @@ export function LandingPage() {
                         {/* Right Visual (Mockup) */}
                         <div className="flex-1 w-full max-w-[600px] lg:max-w-none relative">
                             {/* Decorative elements around the mockup */}
-                            <div className="absolute inset-0 bg-gradient-to-tr from-[#9945FF] to-[#14F195] rounded-3xl blur-2xl opacity-20 transform rotate-6 scale-95" />
+                            <div className="absolute inset-0 bg-gradient-to-tr from-primary to-accent rounded-3xl blur-2xl opacity-10 transform rotate-6 scale-95" />
 
-                            <div className="relative bg-zinc-900/80 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
+                            <div className="relative glass-card rounded-3xl p-6 shadow-2xl">
                                 {/* Abstract UI Representation */}
                                 <div className="space-y-4">
                                     {/* Header */}
@@ -141,14 +141,14 @@ export function LandingPage() {
             </main>
 
             {/* Footer minimal */}
-            <footer className="border-t border-white/5 py-12 relative z-10">
-                <div className="container mx-auto px-6 text-center text-zinc-600 text-sm">
+            <footer className="border-t border-primary/5 py-12 relative z-10">
+                <div className="container mx-auto px-6 text-center text-[#121212]/40 text-xs font-semibold">
                     <p>&copy; {new Date().getFullYear()} NightStudio. Built on Solana.</p>
                     <div className="mt-4 flex items-center justify-center gap-6">
-                        <Link href="/terms" className="text-zinc-400 hover:text-white transition-colors">Terms of Service</Link>
-                        <Link href="/privacy" className="text-zinc-400 hover:text-white transition-colors">Privacy Policy</Link>
-                        <Link href="/dmca" className="text-zinc-400 hover:text-white transition-colors">DMCA</Link>
-                        <Link href="/contract" className="text-zinc-400 hover:text-white transition-colors">Creator Contract</Link>
+                        <Link href="/terms" className="hover:text-primary transition-colors">Terms of Service</Link>
+                        <Link href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link>
+                        <Link href="/dmca" className="hover:text-primary transition-colors">DMCA</Link>
+                        <Link href="/contract" className="hover:text-primary transition-colors">Creator Contract</Link>
                     </div>
                 </div>
             </footer>

@@ -4,12 +4,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import { Heart, MessageCircle, Repeat2, Share2, Pin, PinOff } from "lucide-react";
+import { Heart, MessageCircle, Repeat2, Share2, Pin, PinOff, Loader2, AlertTriangle, TrendingUp, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { LockedImage } from "./LockedImage";
+import { Card } from "@/components/ui/card";
 import { CommentsModal } from "./CommentsModal";
 import { ReportButton } from "./ReportButton";
 import { Post } from "@/types";
+import { getPosts, getFollowingPosts } from "@/lib/server-actions";
 import { formatDate, shortenAddress } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { useRealtimePostUpdates } from "@/hooks/use-websocket";
@@ -57,16 +58,9 @@ export function TweetCard({ post, className }: TweetCardProps) {
     });
   }, [postUpdates]);
 
-  const hasImage = post.imageBlurred || post.imageOriginal;
-  const imageUrl = post.imageOriginal
-    ? `https://ipfs.io/ipfs/${post.imageOriginal}`
-    : post.imageBlurred
-    ? `https://ipfs.io/ipfs/${post.imageBlurred}`
-    : null;
-
-  const blurredImageUrl = post.imageBlurred
-    ? `https://ipfs.io/ipfs/${post.imageBlurred}`
-    : imageUrl;
+  const hasImage = false;
+  const imageUrl = null;
+  const blurredImageUrl = null;
 
   // Check if user has liked/reposted this post
   useEffect(() => {
@@ -209,9 +203,9 @@ export function TweetCard({ post, className }: TweetCardProps) {
         </Link>
 
         {/* Content */}
-        <div className="flex-1 min-w-0">
-          {/* Header */}
-          <div className="flex items-center gap-2 mb-1">
+        <Card className="mb-4 overflow-hidden border-orange-500/10 shadow-sm hover:shadow-md transition-all rounded-2xl bg-white/80 backdrop-blur-sm">
+          {/* Post content padding */}
+          <div className="p-4 sm:p-5 flex gap-3 sm:gap-4">
             <Link href={`/profile/${post.author}`}>
               <span className="font-semibold hover:underline">
                 {shortenAddress(post.author)}
@@ -233,27 +227,7 @@ export function TweetCard({ post, className }: TweetCardProps) {
           )}
 
           {/* Image */}
-          {hasImage && post.imagePrice && blurredImageUrl ? (
-            <div className="mb-3">
-              <LockedImage
-                postId={post.id}
-                author={post.author}
-                blurredImageUrl={blurredImageUrl}
-                originalImageUrl={imageUrl || blurredImageUrl}
-                price={post.imagePrice}
-              />
-            </div>
-          ) : hasImage && imageUrl ? (
-            <div className="relative w-full aspect-video rounded-lg overflow-hidden mb-3">
-              <Image
-                src={imageUrl}
-                alt="Post image"
-                fill
-                className="object-cover"
-                unoptimized
-              />
-            </div>
-          ) : null}
+          {/* IPFS Images removed */}
 
           {/* Actions */}
           <div className="flex items-center gap-6 mt-3">
@@ -317,7 +291,7 @@ export function TweetCard({ post, className }: TweetCardProps) {
               size="sm"
             />
           </div>
-        </div>
+        </Card>
       </div>
     </article>
   );

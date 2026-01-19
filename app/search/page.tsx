@@ -200,19 +200,9 @@ export default function SearchPage() {
                             className="flex items-center gap-3 p-3 rounded-lg hover:bg-zinc-800/50 transition-colors"
                           >
                             <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                              {profile.avatar ? (
-                                <Image
-                                  src={`https://ipfs.io/ipfs/${profile.avatar}`}
-                                  alt={profile.displayName || profile.username || "Creator"}
-                                  width={40}
-                                  height={40}
-                                  className="h-full w-full rounded-full object-cover"
-                                />
-                              ) : (
-                                <span className="text-xs font-mono">
-                                  {shortenAddress(profile.wallet, 2)}
-                                </span>
-                              )}
+                              <span className="text-xs font-mono">
+                                {shortenAddress(profile.wallet, 2)}
+                              </span>
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-sm truncate">
@@ -327,19 +317,9 @@ export default function SearchPage() {
                         <Link href={`/profile/${profile.wallet}`} className="block hover:opacity-80 transition-opacity">
                           <div className="flex items-center gap-4 mb-4">
                             <div className="h-16 w-16 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
-                              {profile.avatar ? (
-                                <Image
-                                  src={`https://ipfs.io/ipfs/${profile.avatar}`}
-                                  alt={profile.displayName || profile.username || "Creator"}
-                                  width={64}
-                                  height={64}
-                                  className="h-full w-full rounded-full object-cover"
-                                />
-                              ) : (
-                                <span className="text-lg font-mono">
-                                  {shortenAddress(profile.wallet, 2)}
-                                </span>
-                              )}
+                              <span className="text-lg font-mono">
+                                {shortenAddress(profile.wallet, 2)}
+                              </span>
                             </div>
                             <div className="flex-1 min-w-0">
                               <h3 className="font-semibold text-lg truncate">

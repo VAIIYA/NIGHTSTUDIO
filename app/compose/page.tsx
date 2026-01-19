@@ -4,36 +4,19 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { Button } from "@/components/ui/button";
-import { ImageUploadWithPrice } from "@/components/ImageUploadWithPrice";
 import { createPost } from "@/lib/server-actions";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, AlertCircle } from "lucide-react";
 
-interface ImageData {
-  blurredCid: string;
-  originalCid: string;
-  blurredUrl: string;
-  originalUrl: string;
-}
+// Image data logic removed (IPFS removed)
 
 export default function ComposePage() {
   const { publicKey, connected } = useWallet();
   const router = useRouter();
   const { toast } = useToast();
   const [content, setContent] = useState("");
-  const [imageData, setImageData] = useState<ImageData | null>(null);
-  const [price, setPrice] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleImageUpload = (data: ImageData & { price: number }) => {
-    setImageData({
-      blurredCid: data.blurredCid,
-      originalCid: data.originalCid,
-      blurredUrl: data.blurredUrl,
-      originalUrl: data.originalUrl,
-    });
-    setPrice(data.price);
-  };
+  // Image upload logic removed (IPFS removed)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,20 +30,11 @@ export default function ComposePage() {
       return;
     }
 
-    if (!content.trim() && !imageData) {
+    if (!content.trim()) {
       toast({
         variant: "destructive",
         title: "Empty post",
-        description: "Please add some content or an image",
-      });
-      return;
-    }
-
-    if (imageData && price <= 0) {
-      toast({
-        variant: "destructive",
-        title: "Invalid price",
-        description: "Please set a price greater than 0 for paid content",
+        description: "Please add some content",
       });
       return;
     }
@@ -71,9 +45,6 @@ export default function ComposePage() {
       await createPost({
         author: publicKey.toString(),
         content: content.trim(),
-        imageBlurred: imageData?.blurredCid,
-        imageOriginal: imageData?.originalCid,
-        imagePrice: imageData && price > 0 ? price : undefined,
       });
 
       toast({
@@ -84,8 +55,6 @@ export default function ComposePage() {
 
       // Reset form
       setContent("");
-      setImageData(null);
-      setPrice(0);
 
       // Navigate to home
       router.push("/");
@@ -144,26 +113,7 @@ export default function ComposePage() {
           </p>
         </div>
 
-        {/* Image Upload with Price */}
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Add Image (Optional)
-          </label>
-          <p className="text-xs text-muted-foreground mb-3">
-            If you upload an image, you can set a USDC unlock price. Users will pay this amount to view the original image.
-          </p>
-          <ImageUploadWithPrice
-            onUploadComplete={(data) => {
-              handleImageUpload(data);
-            }}
-            onRemove={() => {
-              setImageData(null);
-              setPrice(0);
-            }}
-            initialBlurredUrl={imageData?.blurredUrl}
-            initialPrice={price}
-          />
-        </div>
+        {/* Image upload removed (IPFS removed) */}
 
         {/* Submit Button */}
         <div className="flex justify-end">

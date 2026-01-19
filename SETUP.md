@@ -13,10 +13,6 @@ npm install
 Create a `.env.local` file in the root directory with the following variables:
 
 ```env
-# Required: Lighthouse.storage API Key
-# Get one at: https://lighthouse.storage
-NEXT_PUBLIC_LIGHTHOUSE_API_KEY=your_lighthouse_api_key_here
-
 # Required: NIGHT Platform Wallet Address (for receiving 1% platform fees)
 # This is the official NIGHT platform wallet address
 NEXT_PUBLIC_PLATFORM_WALLET=EpfmoiBoNFEofbACjZo1vpyqXUy5Fq9ZtPrGVwok5fb3

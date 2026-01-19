@@ -21,11 +21,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
 
     if (!connected) {
-        return <main className="min-h-screen bg-black">{children}</main>;
+        return <main className="min-h-screen bg-peach-gradient">{children}</main>;
     }
 
     return (
-        <div className="min-h-screen flex flex-col">
+        <div className="min-h-screen flex flex-col bg-peach-gradient">
             <Navbar />
             <div className="flex flex-1">
                 <DesktopSideNav />

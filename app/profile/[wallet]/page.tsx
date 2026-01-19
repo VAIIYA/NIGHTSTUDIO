@@ -55,26 +55,14 @@ export default function ProfilePage() {
       {/* Profile Header */}
       <div className="border-b border-border p-6">
         {/* Banner */}
-        {profile?.banner && (
-          <div className="h-32 bg-gradient-to-r from-primary/20 to-purple-500/20 rounded-lg mb-4 overflow-hidden">
-            {/* Banner image would go here */}
-          </div>
-        )}
+        {/* Banner removed (IPFS removed) */}
 
         <div className="flex items-start gap-4">
           {/* Avatar */}
-          <div className="h-20 w-20 rounded-full bg-primary/20 flex items-center justify-center border-4 border-background -mt-10 relative z-10">
-            {profile?.avatar ? (
-              <img
-                src={`https://ipfs.io/ipfs/${profile.avatar}`}
-                alt="Profile"
-                className="h-full w-full rounded-full object-cover"
-              />
-            ) : (
-              <span className="text-lg font-mono">
-                {shortenAddress(wallet, 3)}
-              </span>
-            )}
+          <div className="h-20 w-20 rounded-full bg-primary/20 flex items-center justify-center border-4 border-background relative z-10">
+            <span className="text-lg font-mono">
+              {shortenAddress(wallet, 3)}
+            </span>
           </div>
 
           {/* Profile Info */}

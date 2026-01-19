@@ -29,7 +29,7 @@ async function getHandler(request: NextRequest) {
 async function postHandler(request: NextRequest) {
   try {
     const body = await request.json();
-    const { author, content, imageBlurred, imageOriginal, imagePrice } = body;
+    const { author, content, imagePrice } = body;
 
     if (!author || !content) {
       const errorResponse = ErrorResponses.validationError("Missing required fields: author and content");
@@ -40,8 +40,6 @@ async function postHandler(request: NextRequest) {
       return await createPost({
         author,
         content,
-        imageBlurred,
-        imageOriginal,
         imagePrice,
       });
     }, "Failed to create post");

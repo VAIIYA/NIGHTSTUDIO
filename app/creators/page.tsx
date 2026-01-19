@@ -73,19 +73,9 @@ export default function CreatorsPage() {
                   {/* Avatar */}
                   <div className="flex items-center justify-center mb-4">
                     <div className="h-20 w-20 rounded-full bg-gradient-to-br from-[#9945FF] to-[#14F195] flex items-center justify-center border-4 border-zinc-800 group-hover:border-white/20 transition-colors">
-                      {profile.avatar ? (
-                        <Image
-                          src={`https://ipfs.io/ipfs/${profile.avatar}`}
-                          alt={profile.displayName || profile.username || "Creator"}
-                          width={80}
-                          height={80}
-                          className="h-full w-full rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-white font-mono text-sm">
-                          {shortenAddress(profile.wallet, 2)}
-                        </span>
-                      )}
+                      <span className="text-white font-mono text-sm">
+                        {shortenAddress(profile.wallet, 2)}
+                      </span>
                     </div>
                   </div>
 

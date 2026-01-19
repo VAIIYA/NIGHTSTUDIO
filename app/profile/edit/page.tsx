@@ -10,8 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Profile } from "@/types";
 import { getProfile, updateProfile } from "@/lib/server-actions";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, X } from "lucide-react";
-import { uploadToLighthouse } from "@/lib/lighthouse";
+import { Loader2, X } from "lucide-react";
 import { OnboardingChecklist } from "@/components/OnboardingChecklist";
 
 export default function EditProfilePage() {
@@ -50,8 +49,8 @@ export default function EditProfilePage() {
           setBio(profileData.bio || "");
           setWebsite(profileData.website || "");
           setLocation(profileData.location || "");
-          setAvatarPreview(profileData.avatar ? `https://ipfs.io/ipfs/${profileData.avatar}` : null);
-          setBannerPreview(profileData.banner ? `https://ipfs.io/ipfs/${profileData.banner}` : null);
+          setAvatarPreview(null);
+          setBannerPreview(null);
         }
       } catch (error) {
         console.error("Failed to load profile:", error);
@@ -96,22 +95,9 @@ export default function EditProfilePage() {
     setIsSaving(true);
 
     try {
-      let avatarCid = profile?.avatar;
-      let bannerCid = profile?.banner;
-
-      // Upload avatar if changed
-      if (avatarFile) {
-        const avatarFormData = new FormData();
-        avatarFormData.append("file", avatarFile);
-        avatarCid = await uploadToLighthouse(avatarFormData);
-      }
-
-      // Upload banner if changed
-      if (bannerFile) {
-        const bannerFormData = new FormData();
-        bannerFormData.append("file", bannerFile);
-        bannerCid = await uploadToLighthouse(bannerFormData);
-      }
+      // Image uploads disabled (IPFS removed)
+      let avatarCid = undefined;
+      let bannerCid = undefined;
 
       // Update profile
       await updateProfile(publicKey.toString(), {
@@ -120,8 +106,6 @@ export default function EditProfilePage() {
         bio: bio.trim() || undefined,
         website: website.trim() || undefined,
         location: location.trim() || undefined,
-        avatar: avatarCid,
-        banner: bannerCid,
       });
 
       toast({
@@ -172,82 +156,7 @@ export default function EditProfilePage() {
       <OnboardingChecklist profile={profile} />
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Banner Upload */}
-        <div>
-          <Label className="block text-sm font-medium mb-2">Banner Image</Label>
-          <div className="relative">
-            <div className="h-32 bg-gradient-to-r from-primary/10 to-purple-500/10 rounded-lg border-2 border-dashed border-primary/30 flex items-center justify-center overflow-hidden">
-              {bannerPreview ? (
-                <img
-                  src={bannerPreview}
-                  alt="Banner preview"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="text-center">
-                  <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">Click to upload banner</p>
-                </div>
-              )}
-            </div>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleBannerChange}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            />
-            {bannerPreview && (
-              <button
-                type="button"
-                onClick={() => {
-                  setBannerFile(null);
-                  setBannerPreview(null);
-                }}
-                className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1 hover:bg-black/70"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Avatar Upload */}
-        <div>
-          <Label className="block text-sm font-medium mb-2">Profile Picture</Label>
-          <div className="relative inline-block">
-            <div className="h-20 w-20 rounded-full bg-primary/20 border-2 border-dashed border-primary/30 flex items-center justify-center overflow-hidden">
-              {avatarPreview ? (
-                <img
-                  src={avatarPreview}
-                  alt="Avatar preview"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="text-center">
-                  <Upload className="h-6 w-6 text-muted-foreground" />
-                </div>
-              )}
-            </div>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleAvatarChange}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer rounded-full"
-            />
-            {avatarPreview && (
-              <button
-                type="button"
-                onClick={() => {
-                  setAvatarFile(null);
-                  setAvatarPreview(null);
-                }}
-                className="absolute -top-1 -right-1 bg-black/50 text-white rounded-full p-1 hover:bg-black/70"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        </div>
+        {/* Photo uploads disabled (IPFS removed) */}
 
         {/* Display Name */}
         <div>
