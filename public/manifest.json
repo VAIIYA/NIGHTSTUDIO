@@ -1,12 +1,15 @@
 {
   "name": "NightStudio",
   "short_name": "NightStudio",
-  "description": "Twitter clone with paid content unlocks on Solana mainnet",
+  "description": "Premium social experience built on Solana. Connect with creators, share exclusive content, and own your digital presence.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#000000",
+  "background_color": "#FEF9F5",
   "theme_color": "#9945FF",
   "orientation": "portrait-primary",
+  "categories": ["social", "entertainment", "productivity"],
+  "lang": "en-US",
+  "dir": "ltr",
   "icons": [
     {
       "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%239945FF'/%3E%3Ctext x='96' y='110' font-family='Arial' font-size='80' fill='white' text-anchor='middle'%3EN%3C/text%3E%3C/svg%3E",
@@ -19,6 +22,46 @@
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-wide.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    },
+    {
+      "src": "/screenshot-narrow.png",
+      "sizes": "750x1334",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Access your creator dashboard",
+      "url": "/dashboard",
+      "icons": [
+        {
+          "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Crect width='96' height='96' fill='%239945FF'/%3E%3Ctext x='48' y='60' font-family='Arial' font-size='40' fill='white' text-anchor='middle'%3ED%3C/text%3E%3C/svg%3E",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Create Post",
+      "short_name": "Create",
+      "description": "Create a new post",
+      "url": "/compose",
+      "icons": [
+        {
+          "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Crect width='96' height='96' fill='%239945FF'/%3E%3Ctext x='48' y='60' font-family='Arial' font-size='40' fill='white' text-anchor='middle'%3E+%3C/text%3E%3C/svg%3E",
+          "sizes": "96x96"
+        }
+      ]
     }
   ]
 }
