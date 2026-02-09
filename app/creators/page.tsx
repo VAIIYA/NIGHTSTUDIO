@@ -82,7 +82,7 @@ export default function CreatorsPage() {
                                             />
                                         ) : (
                                             <div className="w-full h-full bg-meta-orange/10 flex items-center justify-center text-meta-orange font-black text-2xl uppercase">
-                                                {creator.username?.[0] || 'B'}
+                                                {creator.username?.[0] || 'N'}
                                             </div>
                                         )}
                                     </div>

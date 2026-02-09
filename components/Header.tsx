@@ -11,7 +11,7 @@ export default function Header() {
             <div className="flex items-center gap-8">
                 <Link href="/" className="flex items-center gap-2 group">
                     <div className="w-8 h-8 bg-meta-orange rounded-lg flex items-center justify-center text-white font-black text-xl group-hover:rotate-12 transition-transform">
-                        B
+                        N
                     </div>
                     <span className="font-black text-xl tracking-tight text-meta-navy">NIGHTSTUDIO</span>
                 </Link>

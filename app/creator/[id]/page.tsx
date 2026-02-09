@@ -434,7 +434,7 @@ export default function CreatorProfile({ params }: Props) {
                 <article key={i} className="p-4 hover:bg-meta-navy/[0.01] transition-colors">
                   <div className="flex gap-3">
                     <div className="w-10 h-10 rounded-full bg-meta-orange/10 overflow-hidden flex-shrink-0">
-                      {creator?.avatar ? <img src={creator.avatar} /> : <div className="w-full h-full bg-meta-orange text-white flex items-center justify-center font-black">{creator?.username?.[0] || 'B'}</div>}
+                      {creator?.avatar ? <img src={creator.avatar} /> : <div className="w-full h-full bg-meta-orange text-white flex items-center justify-center font-black">{creator?.username?.[0] || 'N'}</div>}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">
