@@ -1,4 +1,4 @@
-import { Schema, model, Document } from 'mongoose'
+import mongoose, { Schema, model, Document } from 'mongoose'
 
 export interface IUser extends Document {
   walletAddress: string
@@ -15,4 +15,6 @@ const UserSchema = new Schema<IUser>({
 UserSchema.index({ walletAddress: 1 })
 UserSchema.index({ role: 1 })
 
-export default model<IUser>('User', UserSchema)
+// Prevent OverwriteModelError in dev mode
+const UserModel = mongoose.models.User || model<IUser>('User', UserSchema)
+export default UserModel

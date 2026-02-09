@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { connectDb } from '@/lib/db'
 import UserModel from '@/models/User'
+import CreatorModel from '@/models/Creator'
 import { verifyToken } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
@@ -17,7 +18,6 @@ export async function GET(req: NextRequest) {
         const user = await UserModel.findOne({ walletAddress: payload.walletAddress })
         if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
-        const CreatorModel = (require('@/models/Creator').default)
         const creator = await CreatorModel.findOne({ userId: user._id })
 
         return NextResponse.json({ user, creator })

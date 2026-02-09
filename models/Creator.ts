@@ -1,4 +1,4 @@
-import { Schema, model, Document } from 'mongoose'
+import mongoose, { Schema, model, Document } from 'mongoose'
 
 export interface ICreator extends Document {
   userId: string
@@ -42,4 +42,6 @@ const CreatorSchema = new Schema<ICreator>({
 
 CreatorSchema.index({ walletAddress: 1 }, { unique: true })
 
-export default model<ICreator>('Creator', CreatorSchema)
+// Prevent OverwriteModelError in dev mode
+const CreatorModel = mongoose.models.Creator || model<ICreator>('Creator', CreatorSchema)
+export default CreatorModel
