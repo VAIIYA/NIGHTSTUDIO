@@ -1,0 +1,45 @@
+{
+  "name": "nightstudio",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@lighthouse-web3/sdk": "^0.4.4",
+    "@solana/spl-token": "^0.4.14",
+    "@solana/wallet-adapter-react": "^0.15.35",
+    "@solana/wallet-adapter-react-ui": "^0.9.35",
+    "@solana/wallet-adapter-wallets": "^0.19.32",
+    "@solana/web3.js": "^1.49.0",
+    "@vercel/blob": "^2.0.0",
+    "autoprefixer": "^10.4.14",
+    "bs58": "^4.0.0",
+    "dotenv": "^16.0.3",
+    "file-type": "^18.7.0",
+    "form-data": "^4.0.0",
+    "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^0.562.0",
+    "mongoose": "^7.8.8",
+    "next": "^13.4.0",
+    "postcss": "^8.4.23",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "recharts": "^2.15.4",
+    "tailwindcss": "^3.3.0",
+    "tweetnacl": "^1.0.3",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/bs58": "^4.0.0",
+    "@types/jsonwebtoken": "^9.0.0",
+    "@types/node": "^20.6.0",
+    "@types/react": "^18.0.37",
+    "@types/react-dom": "^18.0.11",
+    "@types/uuid": "^9.0.0",
+    "typescript": "5.9.3"
+  }
+}

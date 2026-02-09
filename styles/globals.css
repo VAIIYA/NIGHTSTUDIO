@@ -1,0 +1,40 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+@layer base {
+  body {
+    @apply bg-meta-peach text-meta-charcoal min-h-screen;
+  }
+}
+
+@layer components {
+  .meta-card {
+    @apply bg-white/70 backdrop-blur-xl border border-white/40 shadow-xl rounded-3xl;
+  }
+
+  .meta-pill {
+    @apply rounded-full px-6 py-2 transition-all duration-300 active:scale-95;
+  }
+
+  .meta-button-primary {
+    @apply meta-pill bg-meta-orange text-white font-bold hover:bg-meta-orange/90 shadow-lg shadow-meta-orange/20;
+  }
+
+  .meta-button-secondary {
+    @apply meta-pill bg-meta-navy text-white font-bold hover:bg-meta-navy/90;
+  }
+
+  .meta-button-ghost {
+    @apply meta-pill border border-meta-navy/20 text-meta-navy hover:bg-meta-navy/5 font-medium;
+  }
+  
+  .glass-grid {
+    @apply relative overflow-hidden;
+  }
+  
+  .glass-grid::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-br from-meta-orange/5 to-meta-navy/5 -z-10;
+  }
+}
