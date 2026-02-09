@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { connectDb } from '@/lib/db'
-import MessageModel from '@/models/Message'
+import { turso } from '@/lib/turso'
 import { verifyToken } from '@/lib/auth'
+import { v4 as uuidv4 } from 'uuid'
 
 export async function GET(req: NextRequest) {
     try {
@@ -15,17 +15,18 @@ export async function GET(req: NextRequest) {
         if (!payload) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
         const myWallet = payload.walletAddress
-        await connectDb()
+        if (!otherUser) return NextResponse.json({ error: 'Other user required' }, { status: 400 })
 
-        const messages = await MessageModel.find({
-            $or: [
-                { sender: myWallet, recipient: otherUser },
-                { sender: otherUser, recipient: myWallet }
-            ]
-        }).sort({ createdAt: 1 })
+        const result = await turso.execute({
+            sql: `SELECT * FROM messages 
+                  WHERE (sender = ? AND recipient = ?) OR (sender = ? AND recipient = ?)
+                  ORDER BY createdAt ASC`,
+            args: [myWallet, otherUser, otherUser, myWallet]
+        })
 
-        return NextResponse.json(messages)
+        return NextResponse.json(result.rows)
     } catch (e) {
+        console.error('Messages fetch error', e)
         return NextResponse.json({ error: 'Internal error' }, { status: 500 })
     }
 }
@@ -37,21 +38,38 @@ export async function POST(req: NextRequest) {
         const payload = verifyToken(authHeader.split(' ')[1])
         if (!payload) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
-        await connectDb()
         const { recipient, content, storachaCID, priceUSDC } = await req.json()
+        const id = uuidv4()
+        const isUnlocked = (priceUSDC || 0) === 0 ? 1 : 0
 
-        const msg = new MessageModel({
+        await turso.execute({
+            sql: `INSERT INTO messages (
+                id, sender, recipient, content, storachaCID, priceUSDC, isUnlocked
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            args: [
+                id,
+                payload.walletAddress,
+                recipient,
+                content || null,
+                storachaCID || null,
+                priceUSDC || 0,
+                isUnlocked
+            ]
+        })
+
+        // Return created message
+        return NextResponse.json({
+            id,
             sender: payload.walletAddress,
             recipient,
             content,
             storachaCID,
             priceUSDC: priceUSDC || 0,
-            isUnlocked: (priceUSDC || 0) === 0 // Free messages are unlocked by default
+            isUnlocked: Boolean(isUnlocked),
+            createdAt: new Date()
         })
-
-        await msg.save()
-        return NextResponse.json(msg)
     } catch (e) {
+        console.error('Messages send error', e)
         return NextResponse.json({ error: 'Internal error' }, { status: 500 })
     }
 }

@@ -1,66 +1,77 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { connectDb } from '@/lib/db'
-import PostModel from '@/models/Post'
-import CreatorModel from '@/models/Creator'
-import PurchaseModel from '@/models/Purchase'
+import { turso } from '@/lib/turso'
 
 export async function GET(req: NextRequest) {
-  await connectDb()
-  const url = new URL(req.url)
-  const query = url.searchParams.get('q') || ''
-  const priceMin = parseFloat(url.searchParams.get('priceMin') || '0')
-  const priceMax = parseFloat(url.searchParams.get('priceMax') || '1000')
-  const sort = url.searchParams.get('sort') || 'newest' // newest, trending
-  const location = url.searchParams.get('location')
-  const hashtag = url.searchParams.get('hashtag')
+  try {
+    const url = new URL(req.url)
+    const query = url.searchParams.get('q') || ''
+    const priceMin = parseFloat(url.searchParams.get('priceMin') || '0')
+    const priceMax = parseFloat(url.searchParams.get('priceMax') || '1000')
+    const sort = url.searchParams.get('sort') || 'newest' // newest, trending
+    const location = url.searchParams.get('location')
+    const hashtag = url.searchParams.get('hashtag')
 
-  let posts = await PostModel.find({
-    priceUSDC: { $gte: priceMin, $lte: priceMax },
-  }).populate('creatorId', 'bio avatar username location hashtags walletAddress')
-
-  // Filter logic
-  if (query || location || hashtag) {
-    const creatorQuery: any = { $or: [] }
+    let sql = `
+        SELECT p.*, 
+               c.username, c.bio, c.avatar, c.location, c.hashtags as creatorHashtags, c.walletAddress as creatorWallet,
+               (SELECT COUNT(*) FROM purchases WHERE postId = p.id) as purchaseCount
+        FROM posts p
+        JOIN creators c ON p.creatorId = c.id
+        WHERE p.priceUSDC >= ? AND p.priceUSDC <= ?
+      `
+    const args: any[] = [priceMin, priceMax]
 
     if (query) {
-      creatorQuery.$or.push({ bio: { $regex: query, $options: 'i' } })
-      creatorQuery.$or.push({ username: { $regex: query, $options: 'i' } })
+      sql += ` AND (c.username LIKE ? OR c.bio LIKE ?)`
+      args.push(`%${query}%`, `%${query}%`)
     }
 
     if (location) {
-      creatorQuery.location = { $regex: location, $options: 'i' }
+      sql += ` AND c.location LIKE ?`
+      args.push(`%${location}%`)
     }
 
     if (hashtag) {
-      creatorQuery.hashtags = hashtag.startsWith('#') ? hashtag : `#${hashtag}`
+      const tag = hashtag.startsWith('#') ? hashtag : `#${hashtag}`
+      // Simple string matching for JSON arrays stored as text is tricky but standard LIKE works for simple cases
+      // or using JSON functions if enabled in libSQL
+      sql += ` AND (p.hashtags LIKE ? OR c.hashtags LIKE ?)`
+      args.push(`%${tag}%`, `%${tag}%`)
     }
 
-    // Clean up $or if empty
-    if (creatorQuery.$or.length === 0) delete creatorQuery.$or
+    if (sort === 'trending') {
+      sql += ` ORDER BY purchaseCount DESC`
+    } else {
+      sql += ` ORDER BY p.createdAt DESC`
+    }
 
-    const creators = await CreatorModel.find(creatorQuery)
-    const creatorIds = creators.map(c => c._id.toString())
-    posts = posts.filter(p => {
-      const cid = (p.creatorId as any)?._id?.toString() || p.creatorId?.toString()
-      return creatorIds.includes(cid)
+    sql += ` LIMIT 50`
+
+    const result = await turso.execute({ sql, args })
+
+    const posts = result.rows.map(row => {
+      // Parse JSON
+      try { if (typeof row.hashtags === 'string') row.hashtags = JSON.parse(row.hashtags) } catch { }
+      try { if (typeof row.creatorHashtags === 'string') row.creatorHashtags = JSON.parse(row.creatorHashtags) } catch { }
+
+      return {
+        ...row,
+        creatorId: { // Mimic populated creator
+          _id: row.creatorId,
+          id: row.creatorId,
+          username: row.username,
+          bio: row.bio,
+          avatar: row.avatar,
+          location: row.location,
+          hashtags: row.creatorHashtags,
+          walletAddress: row.creatorWallet
+        }
+      }
     })
+
+    return NextResponse.json({ posts })
+  } catch (e) {
+    console.error('Search error:', e)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-
-  // Sort
-  if (sort === 'trending') {
-    // Get purchase counts
-    const purchaseCounts = await PurchaseModel.aggregate([
-      { $group: { _id: '$postId', count: { $sum: 1 } } }
-    ])
-    const countMap = purchaseCounts.reduce((acc, pc) => {
-      acc[pc._id] = pc.count
-      return acc
-    }, {} as Record<string, number>)
-
-    posts = posts.sort((a, b) => (countMap[b._id] || 0) - (countMap[a._id] || 0))
-  } else {
-    posts = posts.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-  }
-
-  return NextResponse.json({ posts: posts.slice(0, 50) }) // limit to 50
 }

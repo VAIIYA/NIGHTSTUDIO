@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { connectDb } from '@/lib/db'
+// import { connectDb } from '@/lib/db'
 import { uploadToLighthouse } from '@/lib/lighthouse'
 import { fileTypeFromBuffer } from 'file-type'
 
 export async function POST(req: NextRequest) {
-  await connectDb()
+  // await connectDb() // Removed Mongoose dependency
   const data = await req.json()
   const { filename } = data
   let { imageBase64 } = data

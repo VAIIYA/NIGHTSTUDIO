@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { connectDb } from '@/lib/db'
-import CreatorModel from '@/models/Creator'
+import { turso } from '@/lib/turso'
 
 export async function GET(req: NextRequest) {
     try {
-        await connectDb()
         // Fetch a few creators, sorted by newest or you could add a 'featured' flag
-        const creators = await CreatorModel.find().sort({ createdAt: -1 }).limit(10)
+        const result = await turso.execute({
+            sql: 'SELECT * FROM creators ORDER BY createdAt DESC LIMIT 10',
+            args: []
+        })
+
+        const creators = result.rows.map(c => {
+            // Safe parse JSONs
+            try { if (typeof c.socialLinks === 'string') c.socialLinks = JSON.parse(c.socialLinks) } catch { }
+            try { if (typeof c.hashtags === 'string') c.hashtags = JSON.parse(c.hashtags) } catch { }
+            return c
+        })
+
         return NextResponse.json({ creators })
     } catch (e) {
         console.error('Featured creators error:', e)

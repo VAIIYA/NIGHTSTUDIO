@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { connectDb } from '@/lib/db'
-import PostModel from '@/models/Post'
-import CreatorModel from '@/models/Creator'
+import { turso } from '@/lib/turso'
 import { isRealStorageEnabled } from '@/lib/featureFlags'
 import { verifyToken } from '@/lib/auth'
+import { v4 as uuidv4 } from 'uuid'
 
 export async function POST(req: NextRequest) {
   try {
-    await connectDb()
-
     // 1. Auth Check
     const authHeader = req.headers.get('authorization')
     if (!authHeader?.startsWith('Bearer ')) {
@@ -23,43 +20,66 @@ export async function POST(req: NextRequest) {
     const { content, storachaCID, blurCID, priceUSDC, hashtags, imagePreview } = await req.json()
 
     // 2. Find Creator
-    const creator = await CreatorModel.findOne({ walletAddress: payload.walletAddress })
-    if (!creator) {
-      return NextResponse.json({ error: 'Creator profile not found' }, { status: 404 })
+    const creatorRes = await turso.execute({
+      sql: 'SELECT * FROM creators WHERE walletAddress = ?',
+      args: [payload.walletAddress]
+    })
+
+    // If no creator profile, maybe auto-create one or error?
+    // For now we error unless we want to auto-create from user
+    if (creatorRes.rows.length === 0) {
+      // Fallback: Check if user exists, and create a basic creator profile
+      const userRes = await turso.execute({ sql: 'SELECT * FROM users WHERE walletAddress = ?', args: [payload.walletAddress] })
+      if (userRes.rows.length === 0) return NextResponse.json({ error: 'User not found' }, { status: 404 })
+
+      // Auto-create creator profile
+      const newCreatorId = uuidv4()
+      await turso.execute({
+        sql: 'INSERT INTO creators (id, userId, walletAddress, username) VALUES (?, ?, ?, ?)',
+        args: [newCreatorId, userRes.rows[0].id, payload.walletAddress, `User-${payload.walletAddress.slice(0, 6)}`]
+      })
+
+      // Refetch
+      const retryRes = await turso.execute({
+        sql: 'SELECT * FROM creators WHERE walletAddress = ?',
+        args: [payload.walletAddress]
+      })
+      if (retryRes.rows.length === 0) return NextResponse.json({ error: 'Failed to create profile' }, { status: 500 })
     }
+
+    // Get the fresh creator result (either from first try or after auto-create)
+    const creator = (await turso.execute({
+      sql: 'SELECT * FROM creators WHERE walletAddress = ?',
+      args: [payload.walletAddress]
+    })).rows[0]
 
     // 3. Handle Image Upload if base64 provided
     let finalStorachaCID = storachaCID || ''
     let finalBlurCID = blurCID || ''
 
-    if (imagePreview && imagePreview.startsWith('data:image/')) {
-      if (isRealStorageEnabled()) {
-        const buffer = Buffer.from(imagePreview.split(',')[1], 'base64')
-        const uploadToStoracha = (require('@/lib/storacha').uploadToStoracha)
-        finalStorachaCID = await uploadToStoracha(buffer, 'post_image.jpg')
-        // For prototype, we'll use the same CID for blur or a generic blurred CID if we had a processor
-        // In a real app, we'd process the image to blur it here.
-        finalBlurCID = finalStorachaCID
-      } else {
-        finalStorachaCID = 'proto-mock-post-image-' + Date.now()
-        finalBlurCID = finalStorachaCID
-      }
+    if (imagePreview && (imagePreview.startsWith('data:image/') || imagePreview.startsWith('http'))) {
+      finalStorachaCID = imagePreview // Just use the URL for now if it's not a real upload flow
+      finalBlurCID = imagePreview
     }
 
     // 4. Create Post
-    const post = new PostModel({
-      creatorId: creator._id,
-      content: content || '',
-      storachaCID: finalStorachaCID,
-      blurCID: finalBlurCID,
-      priceUSDC: priceUSDC || 0,
-      hashtags: hashtags || [],
-      createdAt: new Date(),
-      unlockedUsers: [],
+    const postId = uuidv4()
+    await turso.execute({
+      sql: `INSERT INTO posts (
+            id, creatorId, content, storachaCID, blurCID, priceUSDC, hashtags, createdAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      args: [
+        postId,
+        creator.id,
+        content || '',
+        finalStorachaCID,
+        finalBlurCID,
+        priceUSDC || 0,
+        JSON.stringify(hashtags || [])
+      ]
     })
 
-    await post.save()
-    return NextResponse.json({ success: true, postId: post._id, post })
+    return NextResponse.json({ success: true, postId })
   } catch (e) {
     console.error('Post creation error:', e)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import nacl from 'tweetnacl'
 import bs58 from 'bs58'
-import { verifyToken, generateToken, JWTPayload } from '@/lib/auth'
+import { v4 as uuidv4 } from 'uuid'
+import { verifyToken, generateToken } from '@/lib/auth'
+import { turso } from '@/lib/turso'
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,6 +29,20 @@ export async function POST(req: NextRequest) {
     const isValid = nacl.sign.detached.verify(messageBytes, signatureBytes, publicKeyBytes)
     if (!isValid) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
+    }
+
+    // Check if user exists, if not create
+    const userResult = await turso.execute({
+      sql: 'SELECT * FROM users WHERE walletAddress = ?',
+      args: [walletAddress]
+    })
+
+    if (userResult.rows.length === 0) {
+      const userId = uuidv4()
+      await turso.execute({
+        sql: 'INSERT INTO users (id, walletAddress, role) VALUES (?, ?, ?)',
+        args: [userId, walletAddress, 'user']
+      })
     }
 
     const token = generateToken({ walletAddress }, '7d')

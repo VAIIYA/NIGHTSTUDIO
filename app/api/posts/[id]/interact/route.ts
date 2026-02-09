@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { connectDb } from '@/lib/db'
-import InteractionModel from '@/models/Interaction'
+import { turso } from '@/lib/turso'
+import { v4 as uuidv4 } from 'uuid'
 import { verifyToken } from '@/lib/auth'
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
     try {
-        await connectDb()
         const authHeader = req.headers.get('authorization')
         if (!authHeader?.startsWith('Bearer ')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -25,28 +24,41 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         }
 
         const postId = params.id
-        const userId = payload.walletAddress // Using wallet as ID consistent with other routes
+        const userRes = await turso.execute({
+            sql: 'SELECT id FROM users WHERE walletAddress = ?',
+            args: [payload.walletAddress]
+        })
+
+        if (userRes.rows.length === 0) {
+            return NextResponse.json({ error: 'User not found' }, { status: 404 })
+        }
+
+        const userId = userRes.rows[0].id as string
 
         if (type === 'like' || type === 'repost') {
-            // Toggle logic for like/repost
-            const existing = await InteractionModel.findOne({ userId, postId, type })
-            if (existing) {
-                await InteractionModel.deleteOne({ _id: existing._id })
+            // Check existing
+            const existing = await turso.execute({
+                sql: 'SELECT id FROM interactions WHERE userId = ? AND postId = ? AND type = ?',
+                args: [userId, postId, type]
+            })
+
+            if (existing.rows.length > 0) {
+                await turso.execute({
+                    sql: 'DELETE FROM interactions WHERE id = ?',
+                    args: [existing.rows[0].id]
+                })
                 return NextResponse.json({ success: true, action: 'removed' })
             }
         }
 
-        const interaction = new InteractionModel({
-            userId,
-            postId,
-            type,
-            content: type === 'comment' ? content : undefined
+        const interactionId = uuidv4()
+        await turso.execute({
+            sql: 'INSERT INTO interactions (id, postId, userId, type, content) VALUES (?, ?, ?, ?, ?)',
+            args: [interactionId, postId, userId, type, type === 'comment' ? content : null]
         })
-        await interaction.save()
 
         return NextResponse.json({ success: true, action: 'added' })
     } catch (e: any) {
-        if (e.code === 11000) return NextResponse.json({ success: true, action: 'exists' }) // Race condition handle
         console.error('Interact error:', e)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }

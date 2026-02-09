@@ -2,24 +2,23 @@ import mongoose from 'mongoose'
 
 let isConnected = false
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://Vercel-Admin-nightstudio-mongodb:kdm7hT26Erk2GTMt@nightstudio-mongodb.en7bw71.mongodb.net/?retryWrites=true&w=majority'
-
 export async function connectDb() {
+  console.warn('MongoDB is deprecated. Please use Turso (lib/turso.ts) instead.')
+  // Preventing actual connection to allow phased migration if needed, 
+  // or you can leave it if some parts still strictly depend on it during dev.
+  // For now, checking if we can completely disable it.
+  if (true) return;
+
   if (isConnected) return
 
-  if (!MONGODB_URI) {
-    throw new Error('MONGODB_URI is not set')
-  }
+  const MONGODB_URI = process.env.MONGODB_URI
+  if (!MONGODB_URI) return
 
   try {
-    await mongoose.connect(MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    } as any)
+    await mongoose.connect(MONGODB_URI)
     isConnected = true
     console.log('MongoDB connected')
   } catch (error) {
     console.error('MongoDB connection error:', error)
-    throw error
   }
 }

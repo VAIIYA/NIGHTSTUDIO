@@ -1,26 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { connectDb } from '@/lib/db'
-import CreatorModel from '@/models/Creator'
+import { turso } from '@/lib/turso'
 import { verifyToken } from '@/lib/auth'
 import { uploadToStoracha } from '@/lib/storacha'
 import { isRealStorageEnabled } from '@/lib/featureFlags'
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
     try {
-        await connectDb()
         // Try finding by ID first, then by wallet address
-        let creator = null
-        if (params.id.length > 24) {
-            creator = await CreatorModel.findOne({ walletAddress: params.id })
-        } else {
-            creator = await CreatorModel.findById(params.id)
+        let creatorResult = await turso.execute({
+            sql: 'SELECT * FROM creators WHERE id = ?',
+            args: [params.id]
+        })
+
+        if (creatorResult.rows.length === 0) {
+            creatorResult = await turso.execute({
+                sql: 'SELECT * FROM creators WHERE walletAddress = ?',
+                args: [params.id]
+            })
         }
 
-        if (!creator && params.id.length <= 44) {
-            creator = await CreatorModel.findOne({ walletAddress: params.id })
-        }
+        if (creatorResult.rows.length === 0) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
 
-        if (!creator) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
+        const creator = creatorResult.rows[0]
+        // Parse JSON fields
+        try { if (typeof creator.socialLinks === 'string') creator.socialLinks = JSON.parse(creator.socialLinks) } catch { }
+        try { if (typeof creator.hashtags === 'string') creator.hashtags = JSON.parse(creator.hashtags) } catch { }
+
         return NextResponse.json({ creator })
     } catch (e) {
         console.error('Creator fetch error:', e)
@@ -30,7 +35,6 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
     try {
-        await connectDb()
         const authHeader = req.headers.get('authorization')
         if (!authHeader?.startsWith('Bearer ')) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -42,8 +46,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         const walletAddress = payload.walletAddress
 
         // Find creator - only the owner can update
-        const creator = await CreatorModel.findOne({ walletAddress })
-        if (!creator) return NextResponse.json({ error: 'Creator profile not found' }, { status: 404 })
+        const creatorRes = await turso.execute({
+            sql: 'SELECT * FROM creators WHERE walletAddress = ?',
+            args: [walletAddress]
+        })
+
+        if (creatorRes.rows.length === 0) return NextResponse.json({ error: 'Creator profile not found' }, { status: 404 })
+        const creator = creatorRes.rows[0]
 
         const body = await req.json()
         const { bio, avatarBase64, username, location, hashtags, socialLinks } = body
@@ -54,31 +63,59 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         }
 
         if (username && username !== creator.username) {
-            const existing = await CreatorModel.findOne({ username, walletAddress: { $ne: walletAddress } })
-            if (existing) return NextResponse.json({ error: 'Username already taken' }, { status: 400 })
-            creator.username = username
+            const existing = await turso.execute({
+                sql: 'SELECT id FROM creators WHERE username = ? AND walletAddress != ?',
+                args: [username, walletAddress]
+            })
+            if (existing.rows.length > 0) return NextResponse.json({ error: 'Username already taken' }, { status: 400 })
         }
 
-        if (bio !== undefined) creator.bio = bio
-        if (location !== undefined) creator.location = location
-        if (socialLinks !== undefined) creator.socialLinks = { ...creator.socialLinks, ...socialLinks }
+        const updates: string[] = []
+        const args: any[] = []
+
+        if (username !== undefined) { updates.push('username = ?'); args.push(username) }
+        if (bio !== undefined) { updates.push('bio = ?'); args.push(bio) }
+        if (location !== undefined) { updates.push('location = ?'); args.push(location) }
+
+        if (socialLinks !== undefined) {
+            let currentLinks = {}
+            try { currentLinks = typeof creator.socialLinks === 'string' ? JSON.parse(creator.socialLinks) : {} } catch { }
+            const newLinks = { ...currentLinks, ...socialLinks }
+            updates.push('socialLinks = ?'); args.push(JSON.stringify(newLinks))
+        }
+
         if (hashtags !== undefined) {
-            creator.hashtags = hashtags.slice(0, 10).map((h: string) => h.startsWith('#') ? h : `#${h}`)
+            const tags = hashtags.slice(0, 10).map((h: string) => h.startsWith('#') ? h : `#${h}`)
+            updates.push('hashtags = ?'); args.push(JSON.stringify(tags))
         }
 
         if (avatarBase64 && avatarBase64.startsWith('data:image/')) {
+            let avatarCID = creator.avatar
             if (isRealStorageEnabled()) {
                 const buffer = Buffer.from(avatarBase64.split(',')[1], 'base64')
-                const avatarCID = await uploadToStoracha(buffer, 'avatar.jpg')
-                creator.avatar = avatarCID
+                avatarCID = await uploadToStoracha(buffer, 'avatar.jpg')
             } else {
-                // In proto-mode, store the base64 directly so it renders immediately
-                creator.avatar = avatarBase64
+                avatarCID = avatarBase64
             }
+            updates.push('avatar = ?'); args.push(avatarCID)
         }
 
-        await creator.save()
-        return NextResponse.json({ success: true, creator })
+        if (updates.length > 0) {
+            args.push(creator.id) // Query by ID
+            await turso.execute({
+                sql: `UPDATE creators SET ${updates.join(', ')} WHERE id = ?`,
+                args
+            })
+        }
+
+        // Fetch updated
+        const updatedRes = await turso.execute({ sql: 'SELECT * FROM creators WHERE id = ?', args: [creator.id] })
+        const updatedCreator = updatedRes.rows[0]
+        // Parse JSON fields
+        try { if (typeof updatedCreator.socialLinks === 'string') updatedCreator.socialLinks = JSON.parse(updatedCreator.socialLinks as string) } catch { }
+        try { if (typeof updatedCreator.hashtags === 'string') updatedCreator.hashtags = JSON.parse(updatedCreator.hashtags as string) } catch { }
+
+        return NextResponse.json({ success: true, creator: updatedCreator })
     } catch (e) {
         console.error('Creator update error:', e)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

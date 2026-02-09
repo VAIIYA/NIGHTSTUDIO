@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { connectDb } from '@/lib/db'
-import PurchaseModel from '@/models/Purchase'
-import PostModel from '@/models/Post'
-import SubscriptionModel from '@/models/Subscription'
-import CreatorModel from '@/models/Creator'
+import { turso } from '@/lib/turso'
 import { verifyToken } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
@@ -13,50 +9,85 @@ export async function GET(req: NextRequest) {
         const payload = verifyToken(authHeader.split(' ')[1])
         if (!payload) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
-        await connectDb()
-        const creator = await CreatorModel.findOne({ walletAddress: payload.walletAddress })
-        if (!creator) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
+        // Get Creator
+        const creatorRes = await turso.execute({
+            sql: 'SELECT * FROM creators WHERE walletAddress = ?',
+            args: [payload.walletAddress]
+        })
+        if (creatorRes.rows.length === 0) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
+        const creator = creatorRes.rows[0]
 
-        const posts = await PostModel.find({ creatorId: creator._id })
-        const postIds = posts.map(p => p._id)
+        // Get Posts
+        const postsRes = await turso.execute({
+            sql: 'SELECT * FROM posts WHERE creatorId = ?',
+            args: [creator.id]
+        })
+        const posts = postsRes.rows
 
-        // Earnings by type (Unlock vs Tip vs Subscription)
-        const unlocks = await PurchaseModel.find({ postId: { $in: postIds } })
-        const subscriptions = await SubscriptionModel.find({ creator: payload.walletAddress })
+        // Get Unlocks (Purchases)
+        const unlocksRes = await turso.execute({
+            sql: `
+                SELECT pu.* 
+                FROM purchases pu
+                JOIN posts po ON pu.postId = po.id
+                WHERE po.creatorId = ?
+            `,
+            args: [creator.id]
+        })
+        const unlocks = unlocksRes.rows
 
-        // Tipping stats (assuming we can identify tips in Notification or a new Tip model)
-        // For now, let's aggregate Unlocks and Subscriptions
+        // Get Subscriptions
+        const subsRes = await turso.execute({
+            sql: 'SELECT * FROM subscriptions WHERE creator = ?',
+            args: [payload.walletAddress]
+        })
+        const subscriptions = subsRes.rows
 
-        const totalUnlocks = unlocks.reduce((a, b) => a + (b.amount / 1e6), 0)
-        const totalSubs = subscriptions.reduce((a, b) => a + (b.totalPaid || 0), 0)
+        // Aggregate
+        const totalUnlocks = unlocks.reduce((a, b) => a + (Number(b.amount) / 1e6), 0)
+        const totalSubs = subscriptions.reduce((a, b) => a + (Number(b.totalPaid || 0)), 0)
 
         // Monthly growth (Last 30 days)
-        const thirtyDaysAgo = new Date()
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
-        const newSubs = await SubscriptionModel.countDocuments({
-            creator: payload.walletAddress,
-            createdAt: { $gte: thirtyDaysAgo }
+        // Turso/SQLite date diff
+        const newSubsRes = await turso.execute({
+            sql: `SELECT COUNT(*) as count FROM subscriptions 
+                  WHERE creator = ? AND createdAt >= datetime('now', '-30 days')`,
+            args: [payload.walletAddress]
         })
+        const newSubs = newSubsRes.rows[0].count as number
 
-        // Engagement: Top performing posts
-        const topPosts = posts.sort((a, b) => (b.unlockedUsers?.length || 0) - (a.unlockedUsers?.length || 0)).slice(0, 5)
+        const activeSubsRes = await turso.execute({
+            sql: 'SELECT COUNT(*) as count FROM subscriptions WHERE creator = ? AND isActive = 1',
+            args: [payload.walletAddress]
+        })
+        const activeSubs = activeSubsRes.rows[0].count as number
+
+        // Engagement: Top performing posts (by unlocks count)
+        const postIds = posts.map(p => p.id)
+        // We can do this in SQL for better performance, but for now filtering in JS maps
+        // Or aggregate purchase group by postId
+        const purchaseCounts = unlocks.reduce((acc: any, curr: any) => {
+            acc[curr.postId] = (acc[curr.postId] || 0) + 1
+            return acc
+        }, {}) as Record<string, number>
+
+        const topPosts = posts.sort((a, b) => (purchaseCounts[b.id as string] || 0) - (purchaseCounts[a.id as string] || 0)).slice(0, 5)
 
         return NextResponse.json({
             overview: {
                 totalRevenue: totalUnlocks + totalSubs,
                 unlockRevenue: totalUnlocks,
                 subscriptionRevenue: totalSubs,
-                activeSubscribers: await SubscriptionModel.countDocuments({ creator: payload.walletAddress, isActive: true }),
+                activeSubscribers: activeSubs,
                 newSubscribersLast30Days: newSubs
             },
             topPosts: topPosts.map(p => ({
-                id: p._id,
-                unlocks: p.unlockedUsers?.length || 0,
+                id: p.id,
+                unlocks: purchaseCounts[p.id as string] || 0,
                 price: p.priceUSDC
             })),
             engagement: {
-                averageUnlocksPerPost: totalUnlocks / (posts.length || 1)
+                averageUnlocksPerPost: unlocks.length / (posts.length || 1)
             }
         })
     } catch (e) {
