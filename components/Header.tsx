@@ -3,7 +3,10 @@
 import React from 'react'
 import Link from 'next/link'
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui'
-import { Search, Compass, Users, LayoutDashboard, Bell } from 'lucide-react'
+import { useWallet } from '@solana/wallet-adapter-react'
+import { Search, Compass, Users, LayoutDashboard, Bell, LogIn, Loader2 } from 'lucide-react'
+import { useAuth } from '../hooks/useAuth'
+import { resolveMediaUrl } from '@/lib/media'
 
 export default function Header() {
     return (
@@ -44,10 +47,64 @@ export default function Header() {
                     <Bell size={20} />
                     <span className="absolute top-2 right-2 w-2 h-2 bg-meta-orange rounded-full border-2 border-white"></span>
                 </button>
-                <div className="meta-wallet-wrapper">
-                    <WalletMultiButton className="!bg-meta-orange !rounded-full !font-bold !h-10 !px-6 hover:!bg-meta-orange/90 !transition-all" />
-                </div>
+                <AuthButtons />
             </div>
         </header>
+    )
+}
+
+function AuthButtons() {
+    const { isAuthenticated, user, login, isLoading } = useAuth()
+    const { connected } = useWallet()
+    const { publicKey } = useWallet()
+
+    if (isLoading) return <div className="w-10 h-10 rounded-full bg-meta-navy/5 animate-pulse" />
+
+    // 1. Wallet NOT connected -> Show Wallet Button
+    if (!connected || !publicKey) {
+        return (
+            <div className="meta-wallet-wrapper">
+                <WalletMultiButton className="!bg-meta-orange !rounded-full !font-bold !h-10 !px-6 hover:!bg-meta-orange/90 !transition-all" />
+            </div>
+        )
+    }
+
+    // 2. Wallet Connected BUT Not Authenticated -> Show Sign In
+    if (!isAuthenticated) {
+        return (
+            <div className="flex items-center gap-2">
+                <div className="meta-wallet-wrapper opacity-0 w-0 h-0 overflow-hidden">
+                    <WalletMultiButton /> {/* Keep hidden to maintain connection state/modal */}
+                </div>
+                <button
+                    onClick={() => login()}
+                    className="flex items-center gap-2 bg-meta-navy text-white px-5 py-2.5 rounded-full font-bold text-sm hover:bg-meta-navy/90 transition-all shadow-lg hover:shadow-xl"
+                >
+                    <LogIn size={16} />
+                    Sign In
+                </button>
+            </div>
+        )
+    }
+
+    // 3. Authenticated -> Show Profile
+    return (
+        <div className="flex items-center gap-3 pl-2">
+            <Link href="/dashboard" className="flex items-center gap-2 group">
+                <div className="w-10 h-10 rounded-full bg-meta-orange/10 overflow-hidden border border-meta-navy/5 group-hover:border-meta-orange/50 transition-colors">
+                    {user?.avatar ? (
+                        <img
+                            src={resolveMediaUrl(user.avatar) || ''}
+                            className="w-full h-full object-cover"
+                            alt="me"
+                        />
+                    ) : (
+                        <div className="w-full h-full bg-meta-orange text-white flex items-center justify-center font-black">
+                            {user?.username?.[0] || 'U'}
+                        </div>
+                    )}
+                </div>
+            </Link>
+        </div>
     )
 }

@@ -7,6 +7,7 @@ import {
     Smile, Calendar, MapPin, Search, TrendingUp, UserPlus
 } from 'lucide-react'
 import { useWallet } from '@solana/wallet-adapter-react'
+import { useAuth } from '@/hooks/useAuth'
 import { WhoToFollow, TrendingSidebar } from '../../components/DiscoverySidebar'
 import { resolveMediaUrl } from '@/lib/media'
 import WatermarkedImage from '@/components/WatermarkedImage'
@@ -33,7 +34,8 @@ export default function FeedPage() {
     const [commentingOn, setCommentingOn] = useState<string | null>(null)
     const [commentText, setCommentText] = useState('')
     const [unlockStatus, setUnlockStatus] = useState<{ [key: string]: string }>({})
-    const [currentUser, setCurrentUser] = useState<any>(null)
+    const { user } = useAuth() // Handled by context now
+    // const [currentUser, setCurrentUser] = useState<any>(null)
     const [postContent, setPostContent] = useState('')
     const [postPrice, setPostPrice] = useState('0')
     const [selectedImage, setSelectedImage] = useState<string | null>(null)
@@ -42,27 +44,19 @@ export default function FeedPage() {
     const [showPriceInput, setShowPriceInput] = useState(false)
 
     const { publicKey, connected, sendTransaction } = useWallet()
+    const { token, login, isAuthenticated } = useAuth()
+    // We already get user from useAuth, but keeping local state for now to minimize refactor risk
+    // Ideally we should replace currentUser with the one from context
 
     useEffect(() => {
         fetchFeed(hashtag)
-        fetchMe()
+        // fetchMe() -> Handled by AuthContext now
     }, [activeTab, hashtag, publicKey])
 
-    const fetchMe = async () => {
-        const token = localStorage.getItem('jwt')
-        if (!token) return
-        try {
-            const res = await fetch('/api/auth/me', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
-            if (res.ok) {
-                const data = await res.json()
-                setCurrentUser(data.creator || data.user)
-            }
-        } catch (e) {
-            console.error('Me fetch error:', e)
-        }
-    }
+    // fetchMe is no longer needed in this component as AuthContext handles it
+    // But we might need to sync currentUser state if other parts depend on it
+    // For now we'll just ignore it or remove it if unused
+
 
     const fetchFeed = async (hashtagFilter?: string) => {
         setLoading(true)
@@ -100,8 +94,12 @@ export default function FeedPage() {
 
     const handlePost = async () => {
         if (!postContent.trim() && !selectedImage) return
-        const token = localStorage.getItem('jwt')
-        if (!token) return alert('Please login first')
+
+        if (!token || !isAuthenticated) {
+            alert('Please login first')
+            login() // Trigger login flow
+            return
+        }
 
         setIsPosting(true)
         try {
@@ -135,8 +133,11 @@ export default function FeedPage() {
     }
 
     const handleInteract = async (postId: string, type: string, content?: string) => {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('jwt') : null
-        if (!token) return alert('Please login first')
+        if (!token || !isAuthenticated) {
+            alert('Please login first')
+            login()
+            return
+        }
 
         if (type === 'like' || type === 'repost') {
             setPosts(prev => prev.map(p => {
@@ -176,7 +177,7 @@ export default function FeedPage() {
 
         setUnlockStatus(prev => ({ ...prev, [postId]: 'Requesting nonce...' }))
         try {
-            const token = localStorage.getItem('jwt')
+            // token is from useAuth
 
             // 1. Get Nonce
             const nonceRes = await fetch('/api/purchases/request-nonce', {
@@ -309,15 +310,15 @@ export default function FeedPage() {
                     {/* Compose Box */}
                     <div className="p-4 border-b border-meta-navy/5 flex gap-4">
                         <div className="w-10 h-10 rounded-full bg-meta-orange/10 flex-shrink-0 overflow-hidden">
-                            {currentUser?.avatar ? (
+                            {user?.avatar ? (
                                 <img
-                                    src={resolveMediaUrl(currentUser.avatar) || ''}
+                                    src={resolveMediaUrl(user.avatar) || ''}
                                     className="w-full h-full object-cover"
                                     alt="me"
                                 />
                             ) : (
                                 <div className="w-full h-full bg-meta-orange text-white flex items-center justify-center font-black">
-                                    {currentUser?.username?.[0] || '?'}
+                                    {user?.username?.[0] || '?'}
                                 </div>
                             )}
                         </div>

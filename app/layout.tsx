@@ -4,6 +4,7 @@ import WalletContextProvider from '../lib/WalletContextProvider'
 import Header from '../components/Header'
 import BottomNav from '../components/BottomNav'
 import Footer from '../components/Footer'
+import { AuthProvider } from '../components/AuthProvider'
 
 export const metadata: Metadata = {
   title: 'NIGHTSTUDIO - Creator Economy',
@@ -15,12 +16,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="min-h-screen flex flex-col">
         <WalletContextProvider>
-          <Header />
-          <main className="flex-1 pb-20 md:pb-0">
-            {children}
-          </main>
-          <Footer />
-          <BottomNav />
+          <AuthProvider>
+            <Header />
+            <main className="flex-1 pb-20 md:pb-0">
+              {children}
+            </main>
+            <Footer />
+            <BottomNav />
+          </AuthProvider>
         </WalletContextProvider>
       </body>
     </html>
