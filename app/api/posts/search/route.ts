@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso } from '@/lib/turso'
+import { connectDb } from '@/lib/db'
+import { PostModel } from '@/models/Post'
+import { CreatorModel } from '@/models/User'
 
 export async function GET(req: NextRequest) {
   try {
+    await connectDb()
     const url = new URL(req.url)
     const query = url.searchParams.get('q') || ''
     const priceMin = parseFloat(url.searchParams.get('priceMin') || '0')
@@ -11,63 +14,43 @@ export async function GET(req: NextRequest) {
     const location = url.searchParams.get('location')
     const hashtag = url.searchParams.get('hashtag')
 
-    let sql = `
-        SELECT p.*, 
-               c.username, c.bio, c.avatar, c.location, c.hashtags as creatorHashtags, c.walletAddress as creatorWallet,
-               (SELECT COUNT(*) FROM purchases WHERE postId = p.id) as purchaseCount
-        FROM posts p
-        JOIN creators c ON p.creatorId = c.id
-        WHERE p.priceUSDC >= ? AND p.priceUSDC <= ?
-      `
-    const args: any[] = [priceMin, priceMax]
-
-    if (query) {
-      sql += ` AND (c.username LIKE ? OR c.bio LIKE ?)`
-      args.push(`%${query}%`, `%${query}%`)
-    }
-
-    if (location) {
-      sql += ` AND c.location LIKE ?`
-      args.push(`%${location}%`)
+    let filter: any = {
+      priceUSDC: { $gte: priceMin, $lte: priceMax }
     }
 
     if (hashtag) {
       const tag = hashtag.startsWith('#') ? hashtag : `#${hashtag}`
-      // Simple string matching for JSON arrays stored as text is tricky but standard LIKE works for simple cases
-      // or using JSON functions if enabled in libSQL
-      sql += ` AND (p.hashtags LIKE ? OR c.hashtags LIKE ?)`
-      args.push(`%${tag}%`, `%${tag}%`)
+      filter.hashtags = tag
     }
+
+    let creatorFilter: any = {}
+    if (query) {
+      creatorFilter.$or = [
+        { username: { $regex: query, $options: 'i' } },
+        { bio: { $regex: query, $options: 'i' } }
+      ]
+    }
+    if (location) {
+      creatorFilter.location = { $regex: location, $options: 'i' }
+    }
+
+    // Since we need to join/populate and filter on creator, we might need to find creators first
+    let creatorIds: any[] = []
+    if (Object.keys(creatorFilter).length > 0) {
+      const creators = await CreatorModel.find(creatorFilter).select('_id')
+      creatorIds = creators.map(c => c._id)
+      filter.creatorId = { $in: creatorIds }
+    }
+
+    let postsQuery = PostModel.find(filter).populate('creatorId')
 
     if (sort === 'trending') {
-      sql += ` ORDER BY purchaseCount DESC`
+      postsQuery = postsQuery.sort({ engagementScore: -1 })
     } else {
-      sql += ` ORDER BY p.createdAt DESC`
+      postsQuery = postsQuery.sort({ createdAt: -1 })
     }
 
-    sql += ` LIMIT 50`
-
-    const result = await turso.execute({ sql, args })
-
-    const posts = result.rows.map(row => {
-      // Parse JSON
-      try { if (typeof row.hashtags === 'string') row.hashtags = JSON.parse(row.hashtags) } catch { }
-      try { if (typeof row.creatorHashtags === 'string') row.creatorHashtags = JSON.parse(row.creatorHashtags) } catch { }
-
-      return {
-        ...row,
-        creatorId: { // Mimic populated creator
-          _id: row.creatorId,
-          id: row.creatorId,
-          username: row.username,
-          bio: row.bio,
-          avatar: row.avatar,
-          location: row.location,
-          hashtags: row.creatorHashtags,
-          walletAddress: row.creatorWallet
-        }
-      }
-    })
+    const posts = await postsQuery.limit(50).lean()
 
     return NextResponse.json({ posts })
   } catch (e) {

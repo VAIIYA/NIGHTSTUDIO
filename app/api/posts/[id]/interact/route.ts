@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso } from '@/lib/turso'
-import { v4 as uuidv4 } from 'uuid'
+import { connectDb } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
+import { InteractionModel, PostModel } from '@/models/Post'
+import { UserModel } from '@/models/User'
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
     try {
+        await connectDb()
         const authHeader = req.headers.get('authorization')
         if (!authHeader?.startsWith('Bearer ')) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -24,38 +26,36 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         }
 
         const postId = params.id
-        const userRes = await turso.execute({
-            sql: 'SELECT id FROM users WHERE walletAddress = ?',
-            args: [payload.walletAddress]
-        })
+        const user = await UserModel.findOne({ walletAddress: payload.walletAddress })
 
-        if (userRes.rows.length === 0) {
+        if (!user) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 })
         }
 
-        const userId = userRes.rows[0].id as string
-
         if (type === 'like' || type === 'repost') {
-            // Check existing
-            const existing = await turso.execute({
-                sql: 'SELECT id FROM interactions WHERE userId = ? AND postId = ? AND type = ?',
-                args: [userId, postId, type]
-            })
+            const existing = await InteractionModel.findOne({ userId: user._id, postId, type })
 
-            if (existing.rows.length > 0) {
-                await turso.execute({
-                    sql: 'DELETE FROM interactions WHERE id = ?',
-                    args: [existing.rows[0].id]
-                })
+            if (existing) {
+                await InteractionModel.deleteOne({ _id: existing._id })
+                // Update stats
+                const inc = type === 'like' ? { 'stats.likes': -1 } : { 'stats.reposts': -1 }
+                await PostModel.findByIdAndUpdate(postId, { $inc: inc })
                 return NextResponse.json({ success: true, action: 'removed' })
             }
         }
 
-        const interactionId = uuidv4()
-        await turso.execute({
-            sql: 'INSERT INTO interactions (id, postId, userId, type, content) VALUES (?, ?, ?, ?, ?)',
-            args: [interactionId, postId, userId, type, type === 'comment' ? content : null]
+        const interaction = new InteractionModel({
+            postId,
+            userId: user._id,
+            type,
+            content: type === 'comment' ? content : undefined
         })
+
+        await interaction.save()
+
+        // Update stats
+        const inc = type === 'like' ? { 'stats.likes': 1 } : type === 'repost' ? { 'stats.reposts': 1 } : { 'stats.comments': 1 }
+        await PostModel.findByIdAndUpdate(postId, { $inc: inc })
 
         return NextResponse.json({ success: true, action: 'added' })
     } catch (e: any) {

@@ -1,4 +1,5 @@
-import { turso } from './turso'
+import { connectDb } from './db'
+import { InteractionModel } from '@/models/Post'
 
 /**
  * Calculate engagement score for a post based on interactions
@@ -9,25 +10,12 @@ export async function calculateEngagementScore(
     postId: string,
     createdAt: Date
 ): Promise<number> {
-    // Fetch counts from Turso
-    const result = await turso.execute({
-        sql: `
-            SELECT 
-                (SELECT COUNT(*) FROM interactions WHERE postId = ? AND type = 'like') as likes,
-                (SELECT COUNT(*) FROM interactions WHERE postId = ? AND type = 'comment') as comments,
-                (SELECT COUNT(*) FROM interactions WHERE postId = ? AND type = 'repost') as reposts
-        `,
-        args: [postId, postId, postId]
-    })
+    await connectDb()
 
-    if (result.rows.length === 0) {
-        return 0
-    }
-
-    const row = result.rows[0]
-    const likes = Number(row.likes || 0)
-    const comments = Number(row.comments || 0)
-    const reposts = Number(row.reposts || 0)
+    // Fetch counts from MongoDB
+    const likes = await InteractionModel.countDocuments({ postId, type: 'like' })
+    const comments = await InteractionModel.countDocuments({ postId, type: 'comment' })
+    const reposts = await InteractionModel.countDocuments({ postId, type: 'repost' })
 
     // Base engagement score with weighted actions
     const baseScore = (likes * 1.0) + (comments * 2.0) + (reposts * 3.0)

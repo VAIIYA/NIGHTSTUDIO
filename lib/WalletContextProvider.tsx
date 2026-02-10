@@ -6,7 +6,6 @@ import { WalletModalProvider } from '@solana/wallet-adapter-react-ui'
 import {
     PhantomWalletAdapter,
     SolflareWalletAdapter,
-    SafeWalletAdapter,
     TorusWalletAdapter
 } from '@solana/wallet-adapter-wallets'
 import { clusterApiUrl } from '@solana/web3.js'
@@ -23,7 +22,6 @@ export default function WalletContextProvider({ children }: { children: React.Re
     const wallets = useMemo(() => [
         new PhantomWalletAdapter(),
         new SolflareWalletAdapter(),
-        new SafeWalletAdapter(),
         new TorusWalletAdapter()
     ], [])
 

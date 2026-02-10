@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso } from '@/lib/turso'
+import { connectDb } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
+import { CreatorModel } from '@/models/User'
+import { PostModel } from '@/models/Post'
+import { PurchaseModel } from '@/models/Purchase'
 
 export async function GET(req: NextRequest) {
   try {
+    await connectDb()
     const authHeader = req.headers.get('authorization')
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -14,42 +18,30 @@ export async function GET(req: NextRequest) {
 
     const walletAddress = payload.walletAddress
 
-    const creatorRes = await turso.execute({
-      sql: 'SELECT id, walletAddress FROM creators WHERE walletAddress = ?',
-      args: [walletAddress]
-    })
-
-    if (creatorRes.rows.length === 0) {
+    const creator = await CreatorModel.findOne({ walletAddress }).lean()
+    if (!creator) {
       return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
     }
 
-    const creator = creatorRes.rows[0]
+    // Fetch posts by this creator
+    const posts = await PostModel.find({ creatorId: creator._id }).select('_id')
+    const postIds = posts.map(p => p._id)
 
     // Fetch purchases for creator's posts
-    // We need to join purchases -> posts -> creators
-    const purchasesRes = await turso.execute({
-      sql: `
-            SELECT pu.*, pu.createdAt as purchaseDate 
-            FROM purchases pu
-            JOIN posts po ON pu.postId = po.id
-            WHERE po.creatorId = ?
-            ORDER BY pu.createdAt DESC
-            LIMIT 100
-        `,
-      args: [creator.id]
+    const purchases = await PurchaseModel.find({
+      postId: { $in: postIds }
     })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean()
 
-    const purchases = purchasesRes.rows
-
-    // Calculate earnings: 90% of amount (amount is in USDC lamports *1e6 or whatever unit)
-    // Assuming amount is stored as-is from frontend (likely 1000000 for 1 USDC)
-    const totalEarned = purchases.reduce((sum: number, p: any) => sum + (Number(p.amount) * 0.9 / 1e6), 0) // convert to USDC
+    // Calculate earnings: 90% of amount
+    const totalEarned = purchases.reduce((sum: number, p: any) => sum + (Number(p.amount) * 0.9 / 1e6), 0)
     const platformFee = purchases.reduce((sum: number, p: any) => sum + (Number(p.amount) * 0.1 / 1e6), 0)
 
     // Group by date for chart
     const earningsByDate = purchases.reduce((acc: any, p: any) => {
-      // p.createdAt might be a string in SQLite/Turso
-      const date = String(p.purchaseDate).split('T')[0]
+      const date = new Date(p.createdAt).toISOString().split('T')[0]
       acc[date] = (acc[date] || 0) + (Number(p.amount) * 0.9 / 1e6)
       return acc
     }, {} as Record<string, number>)
@@ -59,8 +51,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       totalEarned,
       platformFee,
-      totalPurchases: purchases.length, // total fetched (capped at 100 for now, should be separate count query for accurate totals)
-      purchaseHistory: purchases.slice(0, 10), // last 10
+      totalPurchases: purchases.length,
+      purchaseHistory: purchases.slice(0, 10),
       chartData,
     })
   } catch (e) {

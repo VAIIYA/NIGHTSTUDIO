@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso } from '@/lib/turso'
+import { connectDb } from '@/lib/db'
 import { getConnection, calculateUSDCSpit, calculateReferralSplit } from '@/lib/solana'
 import { verifyToken } from '@/lib/auth'
-import { v4 as uuidv4 } from 'uuid'
+import { CreatorModel } from '@/models/User'
+import { NotificationModel } from '@/models/Subscription'
 
 export async function POST(req: NextRequest) {
     try {
+        await connectDb()
         const { txSignature, creatorWallet, amountUSDC } = await req.json()
 
         // Auth check
@@ -19,16 +21,12 @@ export async function POST(req: NextRequest) {
         const tx = await conn.getParsedTransaction(txSignature, 'confirmed')
         if (!tx || !tx.meta) return NextResponse.json({ error: 'Transaction invalid' }, { status: 400 })
 
-        const creatorRes = await turso.execute({
-            sql: 'SELECT * FROM creators WHERE walletAddress = ?',
-            args: [creatorWallet]
-        })
-        if (creatorRes.rows.length === 0) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
-        const creator = creatorRes.rows[0]
+        const creator = await CreatorModel.findOne({ walletAddress: creatorWallet }).lean()
+        if (!creator) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
 
         // Check if creator has a referrer
         let expectedTotal: number
-        if (creator.referredBy) {
+        if ((creator as any).referredBy) {
             const { totalBaseUnits } = calculateReferralSplit(amountUSDC)
             expectedTotal = totalBaseUnits
         } else {
@@ -47,21 +45,17 @@ export async function POST(req: NextRequest) {
 
         if (totalUSDC < expectedTotal) {
             console.warn(`Tip amount mismatch: got ${totalUSDC}, expected ${expectedTotal}`)
-            // return NextResponse.json({ error: 'Payment amount mismatch' }, { status: 400 })
         }
 
         // Notify creator
-        const notifId = uuidv4()
-        await turso.execute({
-            sql: `INSERT INTO notifications (id, recipient, sender, type, message, amount) VALUES (?, ?, ?, 'tip', ?, ?)`,
-            args: [
-                notifId,
-                creatorWallet,
-                payload.walletAddress,
-                `You received a ${amountUSDC} USDC tip!`,
-                expectedTotal
-            ]
+        const notification = new NotificationModel({
+            recipient: creatorWallet,
+            sender: payload.walletAddress,
+            type: 'tip',
+            message: `You received a ${amountUSDC} USDC tip!`,
+            amount: expectedTotal
         })
+        await notification.save()
 
         return NextResponse.json({ success: true })
     } catch (e) {

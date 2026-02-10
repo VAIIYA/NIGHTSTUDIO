@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso } from '@/lib/turso'
+import { connectDb } from '@/lib/db'
 import { verifyToken } from '@/lib/auth'
+import { PostModel, InteractionModel } from '@/models/Post'
+import { CreatorModel } from '@/models/User'
+import mongoose from 'mongoose'
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
     try {
+        await connectDb()
         const authHeader = req.headers.get('authorization')
         let currentWallet = null
         if (authHeader?.startsWith('Bearer ')) {
@@ -13,79 +17,48 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         }
 
         let creatorId = params.id
-        // If it looks like a wallet address (long), find the internal ID
-        if (params.id.length > 24) {
-            const creatorRes = await turso.execute({
-                sql: 'SELECT id FROM creators WHERE walletAddress = ?',
-                args: [params.id]
-            })
-            if (creatorRes.rows.length > 0) creatorId = creatorRes.rows[0].id as string
+        // If it's a wallet address, find the creator
+        if (!mongoose.Types.ObjectId.isValid(creatorId)) {
+            const creator = await CreatorModel.findOne({ walletAddress: params.id }).lean()
+            if (creator) creatorId = (creator as any)._id.toString()
+            else return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
         }
-
-        const isUnlockedSubquery = currentWallet
-            ? `, (SELECT COUNT(*) FROM purchases pu JOIN users u ON pu.userId = u.id WHERE pu.postId = p.id AND u.walletAddress = ?) as isUnlocked `
-            : `, 0 as isUnlocked `
-        const subqueryArgs = currentWallet ? [currentWallet] : []
 
         // Fetch original posts by this creator
-        const originalPostsRes = await turso.execute({
-            sql: `
-                SELECT p.*, 
-                       c.username, c.avatar, c.walletAddress as creatorWallet
-                       ${isUnlockedSubquery}
-                FROM posts p
-                LEFT JOIN creators c ON p.creatorId = c.id
-                WHERE p.creatorId = ?
-                ORDER BY p.createdAt DESC
-            `,
-            args: [...subqueryArgs, creatorId]
-        })
+        const originalPosts = await PostModel.find({ creatorId })
+            .populate('creatorId')
+            .sort({ createdAt: -1 })
+            .lean()
 
         // Fetch reposts
-        const repostsRes = await turso.execute({
-            sql: 'SELECT postId FROM interactions WHERE userId = ? AND type = ?',
-            args: [creatorId, 'repost']
-        })
-        const repostedPostIds = repostsRes.rows.map(r => r.postId)
+        // First find interaction of type 'repost' by this creator
+        // But wait, the original logic used creatorId AS userId for interactions.
+        // Let's find the user associated with this creatorId
+        const creator = await CreatorModel.findById(creatorId).lean()
+        if (!creator) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
 
-        let repostedPosts: any[] = []
-        if (repostedPostIds.length > 0) {
-            const placeholders = repostedPostIds.map(() => '?').join(',')
-            const repostedPostsRes = await turso.execute({
-                sql: `
-                    SELECT p.*, 
-                           c.username, c.avatar, c.walletAddress as creatorWallet
-                           ${isUnlockedSubquery}
-                    FROM posts p
-                    LEFT JOIN creators c ON p.creatorId = c.id
-                    WHERE p.id IN (${placeholders})
-                 `,
-                args: [...subqueryArgs, ...repostedPostIds]
-            })
-            repostedPosts = repostedPostsRes.rows
-        }
+        const userId = (creator as any).userId
+
+        const reposts = await InteractionModel.find({ userId, type: 'repost' }).lean()
+        const repostedPostIds = reposts.map(r => r.postId)
+
+        const repostedPosts = await PostModel.find({ _id: { $in: repostedPostIds } })
+            .populate('creatorId')
+            .lean()
 
         const formatPost = (p: any, isOriginal: boolean) => {
-            try { if (typeof p.hashtags === 'string') p.hashtags = JSON.parse(p.hashtags as string) } catch { }
+            const isUnlocked = currentWallet ? p.unlockedUsers?.includes(currentWallet) : false
             return {
                 ...p,
-                _id: p.id,
                 isOriginal,
-                creatorId: { // Mimic populated
-                    _id: p.creatorId,
-                    id: p.creatorId, // Turso ID
-                    username: p.username,
-                    avatar: p.avatar,
-                    walletAddress: p.creatorWallet
-                }
+                isUnlocked: isUnlocked ? 1 : 0 // Keep 1/0 for frontend consistency
             }
         }
 
-        // Combine and add a 'isRepost' flag
         const posts = [
-            ...originalPostsRes.rows.map(p => formatPost(p, true)),
+            ...originalPosts.map(p => formatPost(p, true)),
             ...repostedPosts.map(p => formatPost(p, false))
-        ].sort((a, b) => new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime())
+        ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
         return NextResponse.json({ posts })
     } catch (e) {
