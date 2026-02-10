@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso } from '@/lib/turso'
+import { verifyToken } from '@/lib/auth'
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
     try {
+        const authHeader = req.headers.get('authorization')
+        let currentWallet = null
+        if (authHeader?.startsWith('Bearer ')) {
+            const token = authHeader.split(' ')[1]
+            const payload = verifyToken(token)
+            if (payload) currentWallet = payload.walletAddress
+        }
+
         let creatorId = params.id
         // If it looks like a wallet address (long), find the internal ID
         if (params.id.length > 24) {
@@ -13,17 +22,23 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
             if (creatorRes.rows.length > 0) creatorId = creatorRes.rows[0].id as string
         }
 
+        const isUnlockedSubquery = currentWallet
+            ? `, (SELECT COUNT(*) FROM purchases pu JOIN users u ON pu.userId = u.id WHERE pu.postId = p.id AND u.walletAddress = ?) as isUnlocked `
+            : `, 0 as isUnlocked `
+        const subqueryArgs = currentWallet ? [currentWallet] : []
+
         // Fetch original posts by this creator
         const originalPostsRes = await turso.execute({
             sql: `
                 SELECT p.*, 
                        c.username, c.avatar, c.walletAddress as creatorWallet
+                       ${isUnlockedSubquery}
                 FROM posts p
                 LEFT JOIN creators c ON p.creatorId = c.id
                 WHERE p.creatorId = ?
                 ORDER BY p.createdAt DESC
             `,
-            args: [creatorId]
+            args: [...subqueryArgs, creatorId]
         })
 
         // Fetch reposts
@@ -40,19 +55,21 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
                 sql: `
                     SELECT p.*, 
                            c.username, c.avatar, c.walletAddress as creatorWallet
+                           ${isUnlockedSubquery}
                     FROM posts p
                     LEFT JOIN creators c ON p.creatorId = c.id
                     WHERE p.id IN (${placeholders})
                  `,
-                args: repostedPostIds
+                args: [...subqueryArgs, ...repostedPostIds]
             })
             repostedPosts = repostedPostsRes.rows
         }
 
         const formatPost = (p: any, isOriginal: boolean) => {
-            try { if (typeof p.hashtags === 'string') p.hashtags = JSON.parse(p.hashtags) } catch { }
+            try { if (typeof p.hashtags === 'string') p.hashtags = JSON.parse(p.hashtags as string) } catch { }
             return {
                 ...p,
+                _id: p.id,
                 isOriginal,
                 creatorId: { // Mimic populated
                     _id: p.creatorId,

@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
 
     // Check nonce
     const nonceRes = await turso.execute({
-      sql: 'SELECT * FROM nonces WHERE nonce = ? AND postId = ? AND used = 0', // ignoring userId check strictly matching payload for now as per original placeholder
-      args: [nonce, postId]
+      sql: 'SELECT * FROM nonces WHERE nonce = ? AND postId = ? AND userId = ? AND used = 0',
+      args: [nonce, postId, userId]
     })
     if (nonceRes.rows.length === 0) {
       return NextResponse.json({ error: 'Invalid or used nonce' }, { status: 400 })

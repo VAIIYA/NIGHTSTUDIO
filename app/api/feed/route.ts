@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { turso } from '@/lib/turso'
 import { calculateEngagementScore } from '@/lib/engagementScorer'
+import { verifyToken } from '@/lib/auth'
 
 export async function GET(req: NextRequest) {
     try {
@@ -9,6 +10,14 @@ export async function GET(req: NextRequest) {
         const sort = url.searchParams.get('sort') || 'newest' // newest, trending, engagement
         const limit = parseInt(url.searchParams.get('limit') || '50')
 
+        const authHeader = req.headers.get('authorization')
+        let currentWallet = null
+        if (authHeader?.startsWith('Bearer ')) {
+            const token = authHeader.split(' ')[1]
+            const payload = verifyToken(token)
+            if (payload) currentWallet = payload.walletAddress
+        }
+
         let query = `
             SELECT 
                 p.*,
@@ -16,11 +25,21 @@ export async function GET(req: NextRequest) {
                 (SELECT COUNT(*) FROM interactions WHERE postId = p.id AND type = 'like') as likes,
                 (SELECT COUNT(*) FROM interactions WHERE postId = p.id AND type = 'repost') as reposts,
                 (SELECT COUNT(*) FROM interactions WHERE postId = p.id AND type = 'comment') as comments
-            FROM posts p
-            LEFT JOIN creators c ON p.creatorId = c.id
         `
 
         const args: any[] = []
+
+        if (currentWallet) {
+            query += `, (SELECT COUNT(*) FROM purchases pu JOIN users u ON pu.userId = u.id WHERE pu.postId = p.id AND u.walletAddress = ?) as isUnlocked `
+            args.push(currentWallet)
+        } else {
+            query += `, 0 as isUnlocked `
+        }
+
+        query += `
+            FROM posts p
+            LEFT JOIN creators c ON p.creatorId = c.id
+        `
         const conditions: string[] = []
 
         if (hashtag) {

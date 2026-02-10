@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 })
         }
 
-        const user = userResult.rows[0]
+        const user = { ...userResult.rows[0], _id: userResult.rows[0].id }
         const creatorResult = await turso.execute({
             sql: 'SELECT * FROM creators WHERE userId = ?',
             args: [user.id]
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
 
         let creator = null
         if (creatorResult.rows.length > 0) {
-            creator = creatorResult.rows[0]
+            creator = { ...creatorResult.rows[0], _id: creatorResult.rows[0].id }
             // Parse JSON fields if necessary
             if (creator.socialLinks && typeof creator.socialLinks === 'string') {
                 try { creator.socialLinks = JSON.parse(creator.socialLinks as string) } catch { }

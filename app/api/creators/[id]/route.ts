@@ -21,10 +21,10 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 
         if (creatorResult.rows.length === 0) return NextResponse.json({ error: 'Creator not found' }, { status: 404 })
 
-        const creator = creatorResult.rows[0]
+        const creator = { ...creatorResult.rows[0], _id: creatorResult.rows[0].id }
         // Parse JSON fields
-        try { if (typeof creator.socialLinks === 'string') creator.socialLinks = JSON.parse(creator.socialLinks) } catch { }
-        try { if (typeof creator.hashtags === 'string') creator.hashtags = JSON.parse(creator.hashtags) } catch { }
+        try { if (typeof creator.socialLinks === 'string') creator.socialLinks = JSON.parse(creator.socialLinks as string) } catch { }
+        try { if (typeof creator.hashtags === 'string') creator.hashtags = JSON.parse(creator.hashtags as string) } catch { }
 
         return NextResponse.json({ creator })
     } catch (e) {
@@ -79,7 +79,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
         if (socialLinks !== undefined) {
             let currentLinks = {}
-            try { currentLinks = typeof creator.socialLinks === 'string' ? JSON.parse(creator.socialLinks) : {} } catch { }
+            try { currentLinks = typeof creator.socialLinks === 'string' ? JSON.parse(creator.socialLinks as string) : {} } catch { }
             const newLinks = { ...currentLinks, ...socialLinks }
             updates.push('socialLinks = ?'); args.push(JSON.stringify(newLinks))
         }
@@ -110,7 +110,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
         // Fetch updated
         const updatedRes = await turso.execute({ sql: 'SELECT * FROM creators WHERE id = ?', args: [creator.id] })
-        const updatedCreator = updatedRes.rows[0]
+        const updatedCreator = { ...updatedRes.rows[0], _id: updatedRes.rows[0].id }
         // Parse JSON fields
         try { if (typeof updatedCreator.socialLinks === 'string') updatedCreator.socialLinks = JSON.parse(updatedCreator.socialLinks as string) } catch { }
         try { if (typeof updatedCreator.hashtags === 'string') updatedCreator.hashtags = JSON.parse(updatedCreator.hashtags as string) } catch { }
