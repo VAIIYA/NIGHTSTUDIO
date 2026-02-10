@@ -10,10 +10,10 @@ export async function GET(req: NextRequest) {
         })
 
         const creators = result.rows.map(c => {
-            const creator = { ...c, _id: c.id }
+            const creator = { ...c, _id: (c as any).id } as any
             // Safe parse JSONs
-            try { if (typeof creator.socialLinks === 'string') creator.socialLinks = JSON.parse(creator.socialLinks as string) } catch { }
-            try { if (typeof creator.hashtags === 'string') creator.hashtags = JSON.parse(creator.hashtags as string) } catch { }
+            try { if (typeof creator.socialLinks === 'string') creator.socialLinks = JSON.parse(creator.socialLinks) } catch { }
+            try { if (typeof creator.hashtags === 'string') creator.hashtags = JSON.parse(creator.hashtags) } catch { }
             return creator
         })
 

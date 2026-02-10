@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
         let creator = null
         if (creatorResult.rows.length > 0) {
             const creatorRow = creatorResult.rows[0] as any
-            creator = { ...creatorRow, _id: creatorRow.id }
+            creator = { ...creatorRow, _id: creatorRow.id } as any
             // Parse JSON fields if necessary
             if (creator.socialLinks && typeof creator.socialLinks === 'string') {
                 try { creator.socialLinks = JSON.parse(creator.socialLinks) } catch { }

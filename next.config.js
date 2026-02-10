@@ -22,6 +22,10 @@ const nextConfig = {
         child_process: false,
         net: false,
         tls: false,
+        bufferutil: false,
+        'utf-8-validate': false,
+        encoding: false,
+        'pino-pretty': false,
       };
     }
     return config;
