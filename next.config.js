@@ -26,6 +26,16 @@ const nextConfig = {
         'utf-8-validate': false,
         encoding: false,
         'pino-pretty': false,
+        pino: false,
+        process: false,
+        stream: false,
+        util: false,
+        crypto: false,
+      };
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'bufferutil': false,
+        'utf-8-validate': false,
       };
     }
     return config;

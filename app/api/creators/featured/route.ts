@@ -1,21 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { turso } from '@/lib/turso'
+import { connectDb } from '@/lib/db'
+import { CreatorModel } from '@/models/User'
 
 export async function GET(req: NextRequest) {
     try {
-        // Fetch a few creators, sorted by newest or you could add a 'featured' flag
-        const result = await turso.execute({
-            sql: 'SELECT * FROM creators ORDER BY createdAt DESC LIMIT 10',
-            args: []
-        })
-
-        const creators = result.rows.map(c => {
-            const creator = { ...c, _id: (c as any).id } as any
-            // Safe parse JSONs
-            try { if (typeof creator.socialLinks === 'string') creator.socialLinks = JSON.parse(creator.socialLinks) } catch { }
-            try { if (typeof creator.hashtags === 'string') creator.hashtags = JSON.parse(creator.hashtags) } catch { }
-            return creator
-        })
+        await connectDb()
+        const creators = await CreatorModel.find()
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .lean();
 
         return NextResponse.json({ creators })
     } catch (e) {
