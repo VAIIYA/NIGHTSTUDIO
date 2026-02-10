@@ -82,7 +82,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!publicKey || !signMessage) return
 
         try {
-            const message = `Login to NIGHTSTUDIO:${Date.now()}`
+            setIsLoading(true)
+            const message = `Welcome to NIGHTSTUDIO!\n\nSign this message to authenticate your wallet.\n\nNonce: ${Date.now()}`
             const encodedMessage = new TextEncoder().encode(message)
             const signature = await signMessage(encodedMessage)
 
@@ -103,11 +104,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setToken(newToken)
                 await fetchMe(newToken)
             } else {
-                throw new Error('Login failed')
+                const errData = await res.json()
+                throw new Error(errData.error || 'Login failed')
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Login error:', error)
-            alert('Failed to login. Please try again.')
+            if (error.name === 'WalletSignMessageError' || error.message?.includes('User rejected')) {
+                alert('Signature request was rejected. Please sign the message to log in.')
+            } else {
+                alert(`Login failed: ${error.message}`)
+            }
+        } finally {
+            setIsLoading(false)
         }
     }
 
