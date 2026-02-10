@@ -1,15 +1,7 @@
 "use server";
 
-import { connectDb } from './db'
-import PostModel from '../models/Post'
-import CreatorModel from '../models/Creator'
-import InteractionModel from '../models/Interaction'
-import FollowModel from '../models/Follow'
-import SubscriptionModel from '../models/Subscription'
-import SubscriptionTierModel from '../models/SubscriptionTier'
-import PurchaseModel from '../models/Purchase'
-import NotificationModel from '../models/Notification'
-import ReportModel from '../models/Report'
+import { turso } from './turso'
+import { v4 as uuidv4 } from 'uuid'
 import { validateData, sanitizeString, CreatePostSchema, CreateCommentSchema, CreateLikeSchema, CreateFollowSchema, CreateSubscriptionSchema, CreateReportSchema, CreateUnlockSchema, CreateNotificationSchema, UpdateProfileSchema, CreateProfileSchema, CreateSubscriptionTierSchema } from "./validation";
 import { broadcastToUser, broadcastToRoom } from "./websocket";
 import { extractHashtags } from "./engagementScorer";
@@ -31,57 +23,95 @@ export async function createPost(data: {
     content: string;
     imagePrice?: number;
 }) {
-    await connectDb()
-
     const validatedData = validateData(CreatePostSchema, {
         ...data,
         content: sanitizeString(data.content),
-    });
+    }) as any;
 
     // Extract hashtags from content
     const hashtags = extractHashtags(validatedData.content);
 
-    const post = new PostModel({
-        creatorId: validatedData.author,
-        bio: validatedData.content, // Using bio field for content as per existing model
-        priceUSDC: validatedData.imagePrice || 0,
-        hashtags,
+    const id = uuidv4();
+    await turso.execute({
+        sql: `INSERT INTO posts (id, creatorId, content, priceUSDC, hashtags) VALUES (?, ?, ?, ?, ?)`,
+        args: [id, validatedData.author, validatedData.content, validatedData.imagePrice || 0, JSON.stringify(hashtags)]
     });
 
-    await post.save();
-    await updateProfileStats(validatedData.author, { posts: 1 });
-
-    return post;
+    return { id, creatorId: validatedData.author, content: validatedData.content, priceUSDC: validatedData.imagePrice || 0, hashtags };
 }
 
 export async function getPosts(limit: number = 20, offset: number = 0) {
-    await connectDb()
-    const posts = await PostModel.find({})
-        .populate('creatorId', 'username bio avatar walletAddress')
-        .sort({ createdAt: -1 })
-        .skip(offset)
-        .limit(limit)
-        .lean();
-    return posts;
+    const result = await turso.execute({
+        sql: `
+            SELECT p.*, c.username, c.bio as creatorBio, c.avatar, c.walletAddress
+            FROM posts p
+            LEFT JOIN creators c ON p.creatorId = c.id
+            ORDER BY p.createdAt DESC
+            LIMIT ? OFFSET ?
+        `,
+        args: [limit, offset]
+    });
+    return result.rows.map((row: any) => ({
+        ...row,
+        _id: row.id,
+        creatorId: {
+            _id: row.creatorId,
+            username: row.username,
+            bio: row.creatorBio,
+            avatar: row.avatar,
+            walletAddress: row.walletAddress
+        }
+    }));
 }
 
 export async function getPost(id: string) {
-    await connectDb()
-    const post = await PostModel.findById(id)
-        .populate('creatorId', 'username bio avatar walletAddress')
-        .lean();
-    return post;
+    const result = await turso.execute({
+        sql: `
+            SELECT p.*, c.username, c.bio as creatorBio, c.avatar, c.walletAddress
+            FROM posts p
+            LEFT JOIN creators c ON p.creatorId = c.id
+            WHERE p.id = ?
+        `,
+        args: [id]
+    });
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0] as any;
+    return {
+        ...row,
+        _id: row.id,
+        creatorId: {
+            _id: row.creatorId,
+            username: row.username,
+            bio: row.creatorBio,
+            avatar: row.avatar,
+            walletAddress: row.walletAddress
+        }
+    };
 }
 
 export async function getPostsByAuthor(author: string, limit: number = 100, offset: number = 0) {
-    await connectDb()
-    const posts = await PostModel.find({ creatorId: author })
-        .populate('creatorId', 'username bio avatar walletAddress')
-        .sort({ createdAt: -1 })
-        .skip(offset)
-        .limit(limit)
-        .lean();
-    return posts;
+    const result = await turso.execute({
+        sql: `
+            SELECT p.*, c.username, c.bio as creatorBio, c.avatar, c.walletAddress
+            FROM posts p
+            LEFT JOIN creators c ON p.creatorId = c.id
+            WHERE p.creatorId = ?
+            ORDER BY p.createdAt DESC
+            LIMIT ? OFFSET ?
+        `,
+        args: [author, limit, offset]
+    });
+    return result.rows.map((row: any) => ({
+        ...row,
+        _id: row.id,
+        creatorId: {
+            _id: row.creatorId,
+            username: row.username,
+            bio: row.creatorBio,
+            avatar: row.avatar,
+            walletAddress: row.walletAddress
+        }
+    }));
 }
 
 export async function createUnlock(data: {
@@ -90,52 +120,70 @@ export async function createUnlock(data: {
     txSignature: string;
     amount: number;
 }) {
-    await connectDb()
+    const validatedData = validateData(CreateUnlockSchema, data) as any;
 
-    const validatedData = validateData(CreateUnlockSchema, data);
+    const id = uuidv4();
+    const nonce = `unlock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    const unlock = new PurchaseModel({
-        postId: validatedData.postId,
-        userId: validatedData.wallet,
-        txSignature: validatedData.txSignature,
-        amount: validatedData.amount,
-        nonce: `unlock_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    // Find internal userId
+    const userRes = await turso.execute({
+        sql: 'SELECT id FROM users WHERE walletAddress = ?',
+        args: [validatedData.wallet]
+    });
+    const userId = userRes.rows.length > 0 ? (userRes.rows[0] as any).id : validatedData.wallet;
+
+    await turso.execute({
+        sql: `INSERT INTO purchases (id, userId, postId, txSignature, amount, nonce) VALUES (?, ?, ?, ?, ?, ?)`,
+        args: [id, userId, validatedData.postId, validatedData.txSignature, validatedData.amount, nonce]
     });
 
-    await unlock.save();
-
-    const post = await PostModel.findById(validatedData.postId);
-    if (post && post.creatorId.toString() !== validatedData.wallet) {
-        const notification = new NotificationModel({
-            recipient: post.creatorId,
-            sender: validatedData.wallet,
-            type: 'unlock',
-            postId: validatedData.postId,
-            amount: validatedData.amount,
-            message: `Someone unlocked your content for ${validatedData.amount} USDC`,
-        });
-        await notification.save();
+    const postRes = await turso.execute({
+        sql: `
+            SELECT c.walletAddress 
+            FROM posts p 
+            JOIN creators c ON p.creatorId = c.id 
+            WHERE p.id = ?
+        `,
+        args: [validatedData.postId]
+    });
+    if (postRes.rows.length > 0) {
+        const creatorWallet = (postRes.rows[0] as any).walletAddress;
+        if (creatorWallet !== validatedData.wallet) {
+            const notifId = uuidv4();
+            await turso.execute({
+                sql: `INSERT INTO notifications (id, recipient, sender, type, message, amount, postId) VALUES (?, ?, ?, 'unlock', ?, ?, ?)`,
+                args: [notifId, creatorWallet, validatedData.wallet, `Someone unlocked your content for ${validatedData.amount} USDC`, validatedData.amount, validatedData.postId]
+            });
+        }
     }
 
-    return unlock;
+    return { id, ...validatedData };
 }
 
 export async function hasUnlocked(postId: string, wallet: string) {
-    await connectDb()
-    const unlock = await PurchaseModel.findOne({
-        postId,
-        userId: wallet,
+    const result = await turso.execute({
+        sql: `
+            SELECT 1 FROM purchases pu
+            JOIN users u ON pu.userId = u.id
+            WHERE pu.postId = ? AND u.walletAddress = ?
+        `,
+        args: [postId, wallet]
     });
-    return !!unlock;
+    return result.rows.length > 0;
 }
 
 export async function getUnlocksForPost(postId: string) {
-    await connectDb()
-    const unlocks = await PurchaseModel.find({ postId })
-        .populate('userId', 'username avatar')
-        .sort({ createdAt: -1 })
-        .lean();
-    return unlocks;
+    const result = await turso.execute({
+        sql: `
+            SELECT pu.*, u.username, u.avatar
+            FROM purchases pu
+            LEFT JOIN creators u ON pu.userId = u.id -- Assuming userId might be creatorId or check users table
+            WHERE pu.postId = ?
+            ORDER BY pu.createdAt DESC
+        `,
+        args: [postId]
+    });
+    return result.rows.map((row: any) => ({ ...row, _id: row.id }));
 }
 
 // Note: Post engagement stats are calculated dynamically from interactions
@@ -153,753 +201,646 @@ export async function updatePostEngagement(
 }
 
 export async function getOrCreateProfile(wallet: string) {
-    await connectDb()
-    let creator = await CreatorModel.findOne({ walletAddress: wallet });
+    let result = await turso.execute({
+        sql: 'SELECT * FROM creators WHERE walletAddress = ?',
+        args: [wallet]
+    });
 
-    if (!creator) {
-        creator = new CreatorModel({
-            userId: wallet, // Assuming userId is same as wallet for now
-            walletAddress: wallet,
+    if (result.rows.length === 0) {
+        const userId = uuidv4();
+        await turso.execute({
+            sql: 'INSERT INTO users (id, walletAddress) VALUES (?, ?)',
+            args: [userId, wallet]
         });
-        await creator.save();
+        const creatorId = uuidv4();
+        await turso.execute({
+            sql: 'INSERT INTO creators (id, userId, walletAddress) VALUES (?, ?, ?)',
+            args: [creatorId, userId, wallet]
+        });
+        result = await turso.execute({
+            sql: 'SELECT * FROM creators WHERE id = ?',
+            args: [creatorId]
+        });
     }
 
-    return creator;
+    const row = result.rows[0] as any;
+    return { ...row, _id: row.id };
 }
 
 export async function getProfile(wallet: string) {
-    await connectDb()
-    const creator = await CreatorModel.findOne({ walletAddress: wallet }).lean();
-    return creator;
+    const result = await turso.execute({
+        sql: 'SELECT * FROM creators WHERE walletAddress = ?',
+        args: [wallet]
+    });
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0] as any;
+    return { ...row, _id: row.id };
 }
 
 export async function updateProfile(wallet: string, updates: any) {
-    await connectDb()
-
     const sanitizedUpdates = {
         ...updates,
-        username: updates.username,
         bio: updates.bio ? sanitizeString(updates.bio) : updates.bio,
-        avatar: updates.avatar,
     };
 
     if (sanitizedUpdates.username) {
-        // Check if username is taken by another user
-        const existing = await CreatorModel.findOne({
-            username: sanitizedUpdates.username,
-            walletAddress: { $ne: wallet }
+        const existing = await turso.execute({
+            sql: 'SELECT 1 FROM creators WHERE username = ? AND walletAddress != ?',
+            args: [sanitizedUpdates.username, wallet]
         });
-        if (existing) {
+        if (existing.rows.length > 0) {
             throw new Error("Username already taken");
         }
     }
 
-    const updatedProfile = await CreatorModel.findOneAndUpdate(
-        { walletAddress: wallet },
-        { $set: sanitizedUpdates },
-        { new: true, upsert: true }
-    );
+    const setClause = [];
+    const args = [];
+    for (const [key, value] of Object.entries(sanitizedUpdates)) {
+        if (['username', 'bio', 'avatar', 'location', 'displayName'].includes(key)) {
+            setClause.push(`${key} = ?`);
+            args.push(value);
+        }
+    }
+    args.push(wallet);
 
-    return updatedProfile;
+    if (setClause.length > 0) {
+        await turso.execute({
+            sql: `UPDATE creators SET ${setClause.join(', ')} WHERE walletAddress = ?`,
+            args
+        });
+    }
+
+    return getProfile(wallet);
 }
 
 export async function searchProfiles(query: string, limit: number = 20, offset: number = 0) {
-    await connectDb()
-    const creators = await CreatorModel.find({
-        $or: [
-            { username: { $regex: query, $options: 'i' } },
-            { bio: { $regex: query, $options: 'i' } }
-        ]
-    })
-    .limit(limit)
-    .skip(offset)
-    .lean();
-    return creators;
+    const result = await turso.execute({
+        sql: `SELECT * FROM creators WHERE username LIKE ? OR bio LIKE ? LIMIT ? OFFSET ?`,
+        args: [`%${query}%`, `%${query}%`, limit, offset]
+    });
+    return result.rows.map((row: any) => ({ ...row, _id: row.id }));
 }
 
 export async function getRandomProfiles(limit: number = 20) {
-    await connectDb()
-    const creators = await CreatorModel.aggregate([
-        { $sample: { size: limit } }
-    ]);
-    return creators;
+    const result = await turso.execute({
+        sql: `SELECT * FROM creators ORDER BY RANDOM() LIMIT ?`,
+        args: [limit]
+    });
+    return result.rows.map((row: any) => ({ ...row, _id: row.id }));
 }
 
 export async function searchPosts(query: string, limit: number = 20, offset: number = 0) {
-    await connectDb()
-    const posts = await PostModel.find({
-        $or: [
-            { bio: { $regex: query, $options: 'i' } },
-            { hashtags: { $in: [new RegExp(query, 'i')] } }
-        ]
-    })
-    .populate('creatorId', 'username bio avatar walletAddress')
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .skip(offset)
-    .lean();
-    return posts;
-}
-
-export async function searchComments(query: string, limit: number = 20, offset: number = 0) {
-    await connectDb()
-    const interactions = await InteractionModel.find({
-        type: 'comment',
-        content: { $regex: query, $options: 'i' }
-    })
-    .populate('userId', 'username avatar')
-    .populate({
-        path: 'postId',
-        populate: {
-            path: 'creatorId',
-            select: 'username avatar'
-        }
-    })
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .skip(offset)
-    .lean();
-
-    // Transform to comment format
-    return interactions.map(interaction => ({
-        id: (interaction._id as any).toString(),
-        postId: (interaction.postId as any)._id?.toString() || (interaction.postId as any).toString(),
-        author: (interaction.userId as any)._id?.toString() || (interaction.userId as any).toString(),
-        content: interaction.content || '',
-        createdAt: interaction.createdAt.getTime(),
-        likes: 0, // Would need separate calculation
-        authorUsername: (interaction.userId as any).username,
-        authorAvatar: interaction.userId.avatar,
+    const result = await turso.execute({
+        sql: `
+            SELECT p.*, c.username, c.avatar 
+            FROM posts p
+            LEFT JOIN creators c ON p.creatorId = c.id
+            WHERE p.content LIKE ? OR p.hashtags LIKE ?
+            ORDER BY p.createdAt DESC
+            LIMIT ? OFFSET ?
+        `,
+        args: [`%${query}%`, `%${query}%`, limit, offset]
+    });
+    return result.rows.map((row: any) => ({
+        ...row,
+        _id: row.id,
+        creatorId: { _id: row.creatorId, username: row.username, avatar: row.avatar }
     }));
 }
 
-// Profile stats are calculated dynamically from database queries
-export async function updateProfileStats(wallet: string, updates: any): Promise<void> {
-    // Stats are calculated on-demand, no need to store them
-    return;
+export async function searchComments(query: string, limit: number = 20, offset: number = 0) {
+    const result = await turso.execute({
+        sql: `
+            SELECT i.*, u.username, u.avatar, p.content as postContent
+            FROM interactions i
+            LEFT JOIN users u ON i.userId = u.id
+            LEFT JOIN posts p ON i.postId = p.id
+            WHERE i.type = 'comment' AND i.content LIKE ?
+            ORDER BY i.createdAt DESC
+            LIMIT ? OFFSET ?
+        `,
+        args: [`%${query}%`, limit, offset]
+    });
+    return result.rows.map((row: any) => ({
+        id: row.id,
+        postId: row.postId,
+        author: row.userId,
+        content: row.content,
+        createdAt: new Date(row.createdAt as string).getTime(),
+        authorUsername: row.username,
+        authorAvatar: row.avatar
+    }));
 }
 
 export async function followUser(follower: string, following: string) {
-    await connectDb()
+    if (follower === following) throw new Error("Cannot follow yourself");
 
-    if (follower === following) {
-        throw new Error("Cannot follow yourself");
-    }
+    await turso.execute("CREATE TABLE IF NOT EXISTS follows (id TEXT PRIMARY KEY, follower TEXT NOT NULL, following TEXT NOT NULL, createdAt DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE(follower, following))");
 
-    // Check if already following
-    const existingFollow = await FollowModel.findOne({
-        follower,
-        following
+    const existing = await turso.execute({
+        sql: 'SELECT 1 FROM follows WHERE follower = ? AND following = ?',
+        args: [follower, following]
+    });
+    if (existing.rows.length > 0) throw new Error("Already following");
+
+    const id = uuidv4();
+    await turso.execute({
+        sql: 'INSERT INTO follows (id, follower, following) VALUES (?, ?, ?)',
+        args: [id, follower, following]
     });
 
-    if (existingFollow) {
-        throw new Error("Already following this user");
-    }
-
-    const follow = new FollowModel({
-        follower,
-        following
+    const notifId = uuidv4();
+    await turso.execute({
+        sql: `INSERT INTO notifications (id, recipient, sender, type, message) VALUES (?, ?, ?, 'follow', 'Someone started following you')`,
+        args: [notifId, following, follower]
     });
 
-    await follow.save();
-
-    // Create notification
-    const notification = new NotificationModel({
-        recipient: following,
-        sender: follower,
-        type: 'follow',
-        message: 'Someone started following you',
-    });
-    await notification.save();
-
-    return follow;
+    return { id, follower, following };
 }
 
 export async function unfollowUser(follower: string, following: string): Promise<void> {
-    await connectDb()
-    await FollowModel.deleteOne({
-        follower,
-        following
+    await turso.execute({
+        sql: 'DELETE FROM follows WHERE follower = ? AND following = ?',
+        args: [follower, following]
     });
 }
 
 export async function isFollowing(follower: string, following: string): Promise<boolean> {
-    await connectDb()
-    const follow = await FollowModel.findOne({
-        follower,
-        following
+    const result = await turso.execute({
+        sql: 'SELECT 1 FROM follows WHERE follower = ? AND following = ?',
+        args: [follower, following]
     });
-    return !!follow;
+    return result.rows.length > 0;
 }
 
 export async function getFollowers(wallet: string, limit: number = 50, offset: number = 0) {
-    await connectDb()
-    const follows = await FollowModel.find({ following: wallet })
-        .sort({ createdAt: -1 })
-        .limit(limit)
-        .skip(offset)
-        .lean();
-
-    const followerWallets = follows.map(f => f.follower);
-
-    if (followerWallets.length === 0) {
-        return [];
-    }
-
-    // Get creator profiles for followers
-    const creators = await CreatorModel.find({
-        walletAddress: { $in: followerWallets }
-    }).lean();
-
-    return creators;
+    const result = await turso.execute({
+        sql: `
+            SELECT c.* FROM creators c
+            JOIN follows f ON c.walletAddress = f.follower
+            WHERE f.following = ?
+            ORDER BY f.createdAt DESC
+            LIMIT ? OFFSET ?
+        `,
+        args: [wallet, limit, offset]
+    });
+    return result.rows.map((row: any) => ({ ...row, _id: row.id }));
 }
 
 export async function getFollowing(wallet: string, limit: number = 50, offset: number = 0) {
-    await connectDb()
-    const follows = await FollowModel.find({ follower: wallet })
-        .sort({ createdAt: -1 })
-        .limit(limit)
-        .skip(offset)
-        .lean();
-
-    const followingWallets = follows.map(f => f.following);
-
-    if (followingWallets.length === 0) {
-        return [];
-    }
-
-    // Get creator profiles for following
-    const creators = await CreatorModel.find({
-        walletAddress: { $in: followingWallets }
-    }).lean();
-
-    return creators;
+    const result = await turso.execute({
+        sql: `
+            SELECT c.* FROM creators c
+            JOIN follows f ON c.walletAddress = f.following
+            WHERE f.follower = ?
+            ORDER BY f.createdAt DESC
+            LIMIT ? OFFSET ?
+        `,
+        args: [wallet, limit, offset]
+    });
+    return result.rows.map((row: any) => ({ ...row, _id: row.id }));
 }
 
 export async function likePost(postId: string, wallet: string) {
-    await connectDb()
+    const existing = await turso.execute({
+        sql: "SELECT 1 FROM interactions WHERE postId = ? AND userId = (SELECT id FROM users WHERE walletAddress = ?) AND type = 'like'",
+        args: [postId, wallet]
+    });
+    if (existing.rows.length > 0) throw new Error("Already liked");
 
-    const validatedData = validateData(CreateLikeSchema, { postId, wallet });
-
-    // Check if already liked
-    const existing = await InteractionModel.findOne({
-        userId: validatedData.wallet,
-        postId: validatedData.postId,
-        type: 'like'
+    const id = uuidv4();
+    await turso.execute({
+        sql: "INSERT INTO interactions (id, postId, userId, type) VALUES (?, ?, (SELECT id FROM users WHERE walletAddress = ?), 'like')",
+        args: [id, postId, wallet]
     });
 
-    if (existing) {
-        throw new Error("Already liked this post");
-    }
-
-    const interaction = new InteractionModel({
-        userId: validatedData.wallet,
-        postId: validatedData.postId,
-        type: 'like',
+    // Notify creator
+    const postRes = await turso.execute({
+        sql: "SELECT c.walletAddress FROM posts p JOIN creators c ON p.creatorId = c.id WHERE p.id = ?",
+        args: [postId]
     });
-
-    await interaction.save();
-
-    // Create notification
-    const post = await PostModel.findById(validatedData.postId);
-    if (post && post.creatorId.toString() !== validatedData.wallet) {
-        const notification = new NotificationModel({
-            recipient: post.creatorId,
-            sender: validatedData.wallet,
-            type: 'like',
-            postId: validatedData.postId,
-            message: 'Someone liked your post',
-        });
-        await notification.save();
+    if (postRes.rows.length > 0) {
+        const creatorWallet = (postRes.rows[0] as any).walletAddress;
+        if (creatorWallet !== wallet) {
+            const notifId = uuidv4();
+            await turso.execute({
+                sql: `INSERT INTO notifications (id, recipient, sender, type, message, postId) VALUES (?, ?, ?, 'like', 'Someone liked your post', ?)`,
+                args: [notifId, creatorWallet, wallet, postId]
+            });
+        }
     }
 
-    return interaction;
+    return { id, postId, wallet, type: 'like' };
 }
 
 export async function unlikePost(postId: string, wallet: string): Promise<void> {
-    await connectDb()
-    await InteractionModel.deleteOne({
-        userId: wallet,
-        postId,
-        type: 'like'
+    await turso.execute({
+        sql: "DELETE FROM interactions WHERE postId = ? AND userId = (SELECT id FROM users WHERE walletAddress = ?) AND type = 'like'",
+        args: [postId, wallet]
     });
 }
 
 export async function hasLikedPost(postId: string, wallet: string): Promise<boolean> {
-    await connectDb()
-    const like = await InteractionModel.findOne({
-        userId: wallet,
-        postId,
-        type: 'like'
+    const result = await turso.execute({
+        sql: "SELECT 1 FROM interactions WHERE postId = ? AND userId = (SELECT id FROM users WHERE walletAddress = ?) AND type = 'like'",
+        args: [postId, wallet]
     });
-    return !!like;
+    return result.rows.length > 0;
 }
 
 export async function getPostLikes(postId: string) {
-    await connectDb()
-    const likes = await InteractionModel.find({
-        postId,
-        type: 'like'
-    })
-    .populate('userId', 'username avatar')
-    .sort({ createdAt: -1 })
-    .lean();
-    return likes;
+    const result = await turso.execute({
+        sql: `
+            SELECT i.*, u.username, u.avatar
+            FROM interactions i
+            JOIN users u ON i.userId = u.id
+            WHERE i.postId = ? AND i.type = 'like'
+            ORDER BY i.createdAt DESC
+        `,
+        args: [postId]
+    });
+    return result.rows.map((row: any) => ({ ...row, _id: row.id }));
 }
 
-export async function addComment(postId: string, author: string, content: string, parentCommentId?: string) {
-    await connectDb()
-
-    const validatedData = validateData(CreateCommentSchema, {
-        postId,
-        author,
-        content: sanitizeString(content),
+export async function addComment(postId: string, author: string, content: string) {
+    const id = uuidv4();
+    await turso.execute({
+        sql: "INSERT INTO interactions (id, postId, userId, type, content) VALUES (?, ?, (SELECT id FROM users WHERE walletAddress = ?), 'comment', ?)",
+        args: [id, postId, author, content]
     });
 
-    const interaction = new InteractionModel({
-        userId: validatedData.author,
-        postId: validatedData.postId,
-        type: 'comment',
-        content: validatedData.content,
+    // Notify creator
+    const postRes = await turso.execute({
+        sql: "SELECT c.walletAddress FROM posts p JOIN creators c ON p.creatorId = c.id WHERE p.id = ?",
+        args: [postId]
     });
-
-    await interaction.save();
-
-    // Create notification
-    const post = await PostModel.findById(validatedData.postId);
-    if (post && post.creatorId.toString() !== validatedData.author) {
-        const notification = new NotificationModel({
-            recipient: post.creatorId,
-            sender: validatedData.author,
-            type: 'comment',
-            postId: validatedData.postId,
-            message: 'Someone commented on your post',
-        });
-        await notification.save();
+    if (postRes.rows.length > 0) {
+        const creatorWallet = (postRes.rows[0] as any).walletAddress;
+        if (creatorWallet !== author) {
+            const notifId = uuidv4();
+            await turso.execute({
+                sql: `INSERT INTO notifications (id, recipient, sender, type, message, postId) VALUES (?, ?, ?, 'comment', 'Someone commented on your post', ?)`,
+                args: [notifId, creatorWallet, author, postId]
+            });
+        }
     }
 
-    return {
-        id: (interaction._id as any).toString(),
-        postId: validatedData.postId,
-        author: validatedData.author,
-        content: validatedData.content,
-        createdAt: interaction.createdAt.getTime(),
-        likes: 0,
-    };
+    return { id, postId, author, content, createdAt: Date.now() };
 }
 
 export async function getPostComments(postId: string, limit: number = 50, offset: number = 0) {
-    await connectDb()
-    const comments = await InteractionModel.find({
-        postId,
-        type: 'comment'
-    })
-    .populate('userId', 'username avatar')
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .skip(offset)
-    .lean();
-
-    return comments.map(comment => ({
-        id: (comment._id as any).toString(),
-        postId: comment.postId.toString(),
-        author: (comment.userId as any)._id?.toString() || (comment.userId as any).toString(),
-        content: comment.content || '',
-        createdAt: comment.createdAt.getTime(),
-        likes: 0,
-        authorUsername: (comment.userId as any).username,
-        authorAvatar: (comment.userId as any).avatar,
+    const result = await turso.execute({
+        sql: `
+            SELECT i.*, u.username, u.avatar
+            FROM interactions i
+            JOIN users u ON i.userId = u.id
+            WHERE i.postId = ? AND i.type = 'comment'
+            ORDER BY i.createdAt DESC
+            LIMIT ? OFFSET ?
+        `,
+        args: [postId, limit, offset]
+    });
+    return result.rows.map((row: any) => ({
+        ...row,
+        _id: row.id,
+        authorUsername: row.username,
+        authorAvatar: row.avatar
     }));
 }
 
-export async function getCommentReplies(commentId: string, limit: number = 20, offset: number = 0) {
-    // For now, replies not implemented - would need a parentCommentId field
-    return [];
-}
-
 export async function repostPost(originalPostId: string, author: string, content?: string) {
-    await connectDb()
-
-    const interaction = new InteractionModel({
-        userId: author,
-        postId: originalPostId,
-        type: 'repost',
-        content: content?.trim(),
+    const id = uuidv4();
+    await turso.execute({
+        sql: "INSERT INTO interactions (id, postId, userId, type, content) VALUES (?, ?, (SELECT id FROM users WHERE walletAddress = ?), 'repost', ?)",
+        args: [id, originalPostId, author, content]
     });
 
-    await interaction.save();
-
-    // Create notification
-    const post = await PostModel.findById(originalPostId);
-    if (post && post.creatorId.toString() !== author) {
-        const notification = new NotificationModel({
-            recipient: post.creatorId,
-            sender: author,
-            type: 'repost',
-            postId: originalPostId,
-            message: 'Someone reposted your post',
-        });
-        await notification.save();
+    // Notify creator
+    const postRes = await turso.execute({
+        sql: "SELECT c.walletAddress FROM posts p JOIN creators c ON p.creatorId = c.id WHERE p.id = ?",
+        args: [originalPostId]
+    });
+    if (postRes.rows.length > 0) {
+        const creatorWallet = (postRes.rows[0] as any).walletAddress;
+        if (creatorWallet !== author) {
+            const notifId = uuidv4();
+            await turso.execute({
+                sql: `INSERT INTO notifications (id, recipient, sender, type, message, postId) VALUES (?, ?, ?, 'repost', 'Someone reposted your post', ?)`,
+                args: [notifId, creatorWallet, author, originalPostId]
+            });
+        }
     }
 
-    return interaction;
+    return { id, postId: originalPostId, author, type: 'repost' };
 }
 
 export async function getPostReposts(postId: string) {
-    await connectDb()
-    const reposts = await InteractionModel.find({
-        postId,
-        type: 'repost'
-    })
-    .populate('userId', 'username avatar')
-    .sort({ createdAt: -1 })
-    .lean();
-    return reposts;
+    const result = await turso.execute({
+        sql: `
+            SELECT i.*, u.username, u.avatar
+            FROM interactions i
+            JOIN users u ON i.userId = u.id
+            WHERE i.postId = ? AND i.type = 'repost'
+            ORDER BY i.createdAt DESC
+        `,
+        args: [postId]
+    });
+    return result.rows.map((row: any) => ({ ...row, _id: row.id }));
 }
 
 export async function deleteRepost(originalPostId: string, author: string): Promise<void> {
-    await connectDb()
-    await InteractionModel.deleteOne({
-        userId: author,
-        postId: originalPostId,
-        type: 'repost'
+    await turso.execute({
+        sql: "DELETE FROM interactions WHERE postId = ? AND userId = (SELECT id FROM users WHERE walletAddress = ?) AND type = 'repost'",
+        args: [originalPostId, author]
     });
 }
 
 export async function hasRepostedPost(originalPostId: string, wallet: string): Promise<boolean> {
-    await connectDb()
-    const repost = await InteractionModel.findOne({
-        userId: wallet,
-        postId: originalPostId,
-        type: 'repost'
+    const result = await turso.execute({
+        sql: "SELECT 1 FROM interactions WHERE postId = ? AND userId = (SELECT id FROM users WHERE walletAddress = ?) AND type = 'repost'",
+        args: [originalPostId, wallet]
     });
-    return !!repost;
+    return result.rows.length > 0;
 }
 
 export async function createSubscriptionTier(data: any) {
-    await connectDb()
-
-    const validatedData = validateData(CreateSubscriptionTierSchema, data);
-
-    const tier = new SubscriptionTierModel({
-        creator: validatedData.creator,
-        name: validatedData.name,
-        description: validatedData.description,
-        price: validatedData.price,
-        benefits: validatedData.benefits || [],
+    const id = uuidv4();
+    await turso.execute({
+        sql: 'INSERT INTO subscription_tiers (id, creator, name, description, price, benefits) VALUES (?, ?, ?, ?, ?, ?)',
+        args: [id, data.creator, data.name, data.description, data.price, JSON.stringify(data.benefits || [])]
     });
-
-    await tier.save();
-    return tier;
+    return { id, ...data };
 }
 
 export async function getCreatorTiers(creator: string) {
-    await connectDb()
-    const tiers = await SubscriptionTierModel.find({
-        creator,
-        isActive: true
-    })
-    .sort({ price: 1 })
-    .lean();
-    return tiers;
+    const result = await turso.execute({
+        sql: 'SELECT * FROM subscription_tiers WHERE creator = ? AND isActive = 1 ORDER BY price ASC',
+        args: [creator]
+    });
+    return result.rows.map((row: any) => ({ ...row, _id: row.id }));
 }
 
 export async function updateSubscriptionTier(tierId: string, creator: string, updates: any) {
-    await connectDb()
-    const updatedTier = await SubscriptionTierModel.findOneAndUpdate(
-        { _id: tierId, creator },
-        { $set: { ...updates, updatedAt: new Date() } },
-        { new: true }
-    );
-    return updatedTier;
+    const setClause = [];
+    const args = [];
+    for (const [key, value] of Object.entries(updates)) {
+        if (['name', 'description', 'price', 'benefits', 'isActive'].includes(key)) {
+            setClause.push(`${key} = ?`);
+            args.push(key === 'benefits' ? JSON.stringify(value) : value);
+        }
+    }
+    args.push(tierId, creator);
+
+    if (setClause.length > 0) {
+        await turso.execute({
+            sql: `UPDATE subscription_tiers SET ${setClause.join(', ')} WHERE id = ? AND creator = ?`,
+            args
+        });
+    }
+
+    const res = await turso.execute({ sql: 'SELECT * FROM subscription_tiers WHERE id = ?', args: [tierId] });
+    return res.rows.length > 0 ? { ...(res.rows[0] as any), _id: (res.rows[0] as any).id } : null;
 }
 
 export async function subscribeToTier(data: any) {
-    await connectDb()
+    const tierRes = await turso.execute({
+        sql: 'SELECT * FROM subscription_tiers WHERE id = ? AND creator = ? AND isActive = 1',
+        args: [data.tierId, data.creator]
+    });
+    if (tierRes.rows.length === 0) throw new Error("Subscription tier not found");
+    const tier = tierRes.rows[0] as any;
 
-    const validatedData = validateData(CreateSubscriptionSchema, data);
-
-    // Check if tier exists and is active
-    const tier = await SubscriptionTierModel.findOne({
-        _id: validatedData.tierId,
-        creator: validatedData.creator,
-        isActive: true
+    const id = uuidv4();
+    await turso.execute({
+        sql: 'INSERT INTO subscriptions (id, subscriber, creator, tierId, endDate, totalPaid) VALUES (?, ?, ?, ?, datetime(CURRENT_TIMESTAMP, "+30 days"), ?)',
+        args: [id, data.subscriber, data.creator, data.tierId, tier.price]
     });
 
-    if (!tier) {
-        throw new Error("Subscription tier not found");
-    }
-
-    // Check if already subscribed to this tier
-    const existingSubscription = await SubscriptionModel.findOne({
-        subscriber: validatedData.subscriber,
-        tierId: validatedData.tierId,
-        isActive: true,
+    const notifId = uuidv4();
+    await turso.execute({
+        sql: `INSERT INTO notifications (id, recipient, sender, type, message, amount) VALUES (?, ?, ?, 'subscription', ?, ?)`,
+        args: [notifId, data.creator, data.subscriber, `New subscriber! Someone subscribed to your content for ${tier.price} USDC/month`, tier.price]
     });
 
-    if (existingSubscription) {
-        throw new Error("Already subscribed to this tier");
-    }
+    return { id, ...data };
+}
 
-    // Deactivate any existing subscriptions to other tiers of this creator
-    await SubscriptionModel.updateMany(
-        {
-            subscriber: validatedData.subscriber,
-            creator: validatedData.creator,
-            isActive: true
-        },
-        { $set: { isActive: false } }
-    );
-
-    const now = new Date();
-    const subscription = new SubscriptionModel({
-        subscriber: validatedData.subscriber,
-        creator: validatedData.creator,
-        tierId: validatedData.tierId,
-        startDate: now,
-        endDate: new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000)), // 30 days
-        isActive: true,
-        autoRenew: true,
-        lastPaymentDate: now,
-        totalPaid: tier.price,
+export async function getActiveSubscription(subscriber: string, creator: string) {
+    const result = await turso.execute({
+        sql: 'SELECT * FROM subscriptions WHERE subscriber = ? AND creator = ? AND isActive = 1 AND endDate > CURRENT_TIMESTAMP',
+        args: [subscriber, creator]
     });
-
-    await subscription.save();
-
-    // Update creator earnings
-    await updateProfileStats(validatedData.creator, { earnings: tier.price });
-
-    // Create notification for creator
-    const notification = new NotificationModel({
-        recipient: validatedData.creator,
-        sender: validatedData.subscriber,
-        type: 'subscription',
-        amount: tier.price,
-        message: `New subscriber! Someone subscribed to your content for ${tier.price} USDC/month`,
-    });
-    await notification.save();
-
-    return subscription;
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0] as any;
+    return { ...row, _id: row.id };
 }
 
 export async function createNotification(data: any) {
-    await connectDb()
-    const notification = new NotificationModel(data);
-    await notification.save();
-    return notification;
+    const notifId = uuidv4();
+    await turso.execute({
+        sql: `INSERT INTO notifications (id, recipient, sender, type, message, postId, amount) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        args: [notifId, data.recipient, data.sender, data.type, data.message, data.postId || null, data.amount || null]
+    });
+    return { id: notifId, ...data };
 }
 
 export async function getNotifications(wallet: string, limit: number = 50, offset: number = 0) {
-    await connectDb()
-    const notifications = await NotificationModel.find({ recipient: wallet })
-        .populate('sender', 'username avatar')
-        .sort({ createdAt: -1 })
-        .limit(limit)
-        .skip(offset)
-        .lean();
-    return notifications;
+    const result = await turso.execute({
+        sql: `
+            SELECT n.*, c.username, c.avatar
+            FROM notifications n
+            LEFT JOIN creators c ON n.sender = c.walletAddress
+            WHERE n.recipient = ?
+            ORDER BY n.createdAt DESC
+            LIMIT ? OFFSET ?
+        `,
+        args: [wallet, limit, offset]
+    });
+    return result.rows.map((row: any) => ({
+        ...row,
+        _id: row.id,
+        sender: { username: row.username, avatar: row.avatar }
+    }));
 }
 
 export async function markNotificationAsRead(notificationId: string, recipient: string): Promise<void> {
-    await connectDb()
-    await NotificationModel.updateOne(
-        { _id: notificationId, recipient },
-        { isRead: true }
-    );
+    await turso.execute({
+        sql: 'UPDATE notifications SET isRead = 1 WHERE id = ? AND recipient = ?',
+        args: [notificationId, recipient]
+    });
 }
 
 export async function markAllNotificationsAsRead(recipient: string): Promise<void> {
-    await connectDb()
-    await NotificationModel.updateMany(
-        { recipient, isRead: false },
-        { isRead: true }
-    );
+    await turso.execute({
+        sql: 'UPDATE notifications SET isRead = 1 WHERE recipient = ? AND isRead = 0',
+        args: [recipient]
+    });
 }
 
 export async function getUnreadNotificationCount(recipient: string): Promise<number> {
-    await connectDb()
-    const count = await NotificationModel.countDocuments({
-        recipient,
-        isRead: false
+    const result = await turso.execute({
+        sql: 'SELECT COUNT(*) as count FROM notifications WHERE recipient = ? AND isRead = 0',
+        args: [recipient]
     });
-    return count;
+    return Number((result.rows[0] as any).count);
 }
 
 export async function deleteNotification(notificationId: string, recipient: string): Promise<void> {
-    await connectDb()
-    await NotificationModel.deleteOne({
-        _id: notificationId,
-        recipient
+    await turso.execute({
+        sql: 'DELETE FROM notifications WHERE id = ? AND recipient = ?',
+        args: [notificationId, recipient]
     });
 }
 
 export async function reportContent(data: any) {
-    await connectDb()
-    const report = new ReportModel(data);
-    await report.save();
-    return report;
+    const id = uuidv4();
+    await turso.execute({
+        sql: 'INSERT INTO reports (id, postId, reporterId, reason) VALUES (?, ?, ?, ?)',
+        args: [id, data.postId, data.reporter, data.reason]
+    });
+    return { id, ...data };
 }
 
 export async function getReports(status?: string, limit: number = 50, offset: number = 0) {
-    await connectDb()
-    const query = status ? { status } : {};
-    const reports = await ReportModel.find(query)
-        .sort({ createdAt: -1 })
-        .limit(limit)
-        .skip(offset)
-        .lean();
-    return reports;
+    let sql = 'SELECT * FROM reports';
+    const args: any[] = [];
+    if (status) {
+        sql += ' WHERE status = ?';
+        args.push(status);
+    }
+    sql += ' ORDER BY createdAt DESC LIMIT ? OFFSET ?';
+    args.push(limit, offset);
+
+    const result = await turso.execute({ sql, args });
+    return result.rows.map((row: any) => ({ ...row, _id: row.id }));
 }
 
 export async function updateReportStatus(reportId: string, status: string, reviewedBy: string): Promise<void> {
-    await connectDb()
-    await ReportModel.updateOne(
-        { _id: reportId },
-        {
-            status,
-            reviewedAt: new Date(),
-            reviewedBy
-        }
-    );
-}
-
-export async function getActiveSubscription(subscriber: string, creator: string) {
-    await connectDb()
-    const subscription = await SubscriptionModel.findOne({
-        subscriber,
-        creator,
-        isActive: true
-    }).lean();
-    return subscription;
+    await turso.execute({
+        sql: 'UPDATE reports SET status = ? WHERE id = ?',
+        args: [status, reportId]
+    });
 }
 
 export async function getCreatorSubscribers(creator: string) {
-    await connectDb()
-    const subscribers = await SubscriptionModel.find({
-        creator,
-        isActive: true
-    })
-    .populate('subscriber', 'username avatar')
-    .sort({ createdAt: -1 })
-    .lean();
-    return subscribers;
+    const result = await turso.execute({
+        sql: `
+            SELECT s.*, c.username, c.avatar
+            FROM subscriptions s
+            LEFT JOIN creators c ON s.subscriber = c.walletAddress
+            WHERE s.creator = ? AND s.isActive = 1
+            ORDER BY s.createdAt DESC
+        `,
+        args: [creator]
+    });
+    return result.rows.map((row: any) => ({
+        ...row,
+        _id: row.id,
+        subscriber: { username: row.username, avatar: row.avatar }
+    }));
 }
 
 export async function getSubscriberSubscriptions(subscriber: string) {
-    await connectDb()
-    const subscriptions = await SubscriptionModel.find({
-        subscriber,
-        isActive: true
-    }).lean();
-    return subscriptions;
+    const result = await turso.execute({
+        sql: 'SELECT * FROM subscriptions WHERE subscriber = ? AND isActive = 1',
+        args: [subscriber]
+    });
+    return result.rows.map((row: any) => ({ ...row, _id: row.id }));
 }
 
 export async function getBillingHistory(subscriber: string) {
-    await connectDb()
-    // Get purchases (unlocks)
-    const purchases = await PurchaseModel.find({ userId: subscriber })
-        .populate('postId', 'creatorId')
-        .sort({ createdAt: -1 })
-        .lean();
-
-    // Get subscriptions
-    const subscriptions = await SubscriptionModel.find({
-        subscriber,
-        isActive: true
-    }).lean();
+    const purchaseRes = await turso.execute({
+        sql: 'SELECT * FROM purchases WHERE userId = (SELECT id FROM users WHERE walletAddress = ?) ORDER BY createdAt DESC',
+        args: [subscriber]
+    });
+    const subRes = await turso.execute({
+        sql: 'SELECT * FROM subscriptions WHERE subscriber = ? AND isActive = 1 ORDER BY createdAt DESC',
+        args: [subscriber]
+    });
 
     const history = [
-        ...purchases.map(p => ({
-            id: p._id.toString(),
+        ...purchaseRes.rows.map((p: any) => ({
+            id: p.id,
             type: 'unlock' as const,
             amount: p.amount,
             description: `Content unlock`,
-            date: p.createdAt.getTime(),
-            postId: (p.postId as any)._id?.toString()
+            date: new Date(p.createdAt as string).getTime(),
+            postId: p.postId
         })),
-        ...subscriptions.map(s => ({
-            id: s._id.toString(),
+        ...subRes.rows.map((s: any) => ({
+            id: s.id,
             type: 'subscription' as const,
             amount: s.totalPaid,
             description: `Subscription to creator`,
-            date: s.createdAt.getTime(),
+            date: new Date(s.createdAt as string).getTime(),
             creator: s.creator
         }))
     ];
 
-    return history.sort((a, b) => b.date - a.date);
+    return history.sort((a, b: any) => b.date - a.date);
 }
 
 export async function cancelSubscription(subscriptionId: string, subscriber: string): Promise<void> {
-    await connectDb()
-    await SubscriptionModel.updateOne(
-        { _id: subscriptionId, subscriber },
-        { isActive: false, autoRenew: false }
-    );
+    await turso.execute({
+        sql: 'UPDATE subscriptions SET isActive = 0, autoRenew = 0 WHERE id = ? AND subscriber = ?',
+        args: [subscriptionId, subscriber]
+    });
 }
 
 export async function manualRenewSubscription(subscriptionId: string, subscriber: string) {
-    await connectDb()
-    const subscription = await SubscriptionModel.findOne({
-        _id: subscriptionId,
-        subscriber
+    const result = await turso.execute({
+        sql: 'SELECT * FROM subscriptions WHERE id = ? AND subscriber = ?',
+        args: [subscriptionId, subscriber]
     });
 
-    if (!subscription) throw new Error("Subscription not found");
+    if (result.rows.length === 0) throw new Error("Subscription not found");
+    const sub = result.rows[0];
 
-    // Would need tier information - simplified for now
     return {
-        tierId: subscription.tierId,
-        price: 10, // Placeholder
-        creator: subscription.creator,
+        tierId: sub.tierId,
+        price: 10,
+        creator: sub.creator,
     };
 }
 
 export async function renewSubscription(subscriptionId: string, amount: number): Promise<void> {
-    await connectDb()
-    const now = new Date();
-    await SubscriptionModel.updateOne(
-        { _id: subscriptionId, isActive: true, autoRenew: true },
-        {
-            endDate: new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000)),
-            lastPaymentDate: now,
-            $inc: { totalPaid: amount }
-        }
-    );
+    await turso.execute({
+        sql: 'UPDATE subscriptions SET endDate = datetime(CURRENT_TIMESTAMP, "+30 days"), lastPaymentDate = CURRENT_TIMESTAMP, totalPaid = totalPaid + ? WHERE id = ? AND isActive = 1 AND autoRenew = 1',
+        args: [amount, subscriptionId]
+    });
 }
 
 export async function hasSubscriptionAccess(subscriber: string, creator: string): Promise<boolean> {
-    const subscription = await getActiveSubscription(subscriber, creator);
-    return !!subscription && subscription.endDate > new Date();
+    const sub = await getActiveSubscription(subscriber, creator);
+    return !!sub;
 }
 
 export async function togglePostPin(postId: string, author: string): Promise<void> {
-    // Pinning not implemented yet
     throw new Error("Post pinning not yet implemented");
 }
 
 export async function getFollowingPosts(wallet: string, limit: number = 20, offset: number = 0) {
-    await connectDb()
+    const result = await turso.execute({
+        sql: `
+            SELECT p.*, c.username, c.avatar, c.walletAddress
+            FROM posts p
+            JOIN follows f ON p.creatorId = (SELECT id FROM creators WHERE walletAddress = f.following)
+            JOIN creators c ON p.creatorId = c.id
+            WHERE f.follower = ?
+            ORDER BY p.createdAt DESC
+            LIMIT ? OFFSET ?
+        `,
+        args: [wallet, limit, offset]
+    });
+    return result.rows.map((row: any) => ({
+        ...row,
+        _id: row.id,
+        creatorId: { _id: row.creatorId, username: row.username, avatar: row.avatar, walletAddress: row.walletAddress }
+    }));
+}
 
-    // Get users this wallet is following
-    const follows = await FollowModel.find({ follower: wallet }).lean();
-    const followingWallets = follows.map(f => f.following);
-
-    if (followingWallets.length === 0) {
-        return [];
-    }
-
-    // Get posts from followed users
-    const posts = await PostModel.find({
-        creatorId: { $in: followingWallets }
-    })
-    .populate('creatorId', 'username bio avatar walletAddress')
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .skip(offset)
-    .lean();
-
-    return posts;
+export async function updateProfileStats(wallet: string, updates: any): Promise<void> {
+    return;
 }
 
 

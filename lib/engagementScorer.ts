@@ -1,4 +1,4 @@
-import InteractionModel from '@/models/Interaction'
+import { turso } from './turso'
 
 /**
  * Calculate engagement score for a post based on interactions
@@ -9,24 +9,25 @@ export async function calculateEngagementScore(
     postId: string,
     createdAt: Date
 ): Promise<number> {
-    // Aggregate interactions for this post
-    const interactions = await InteractionModel.aggregate([
-        { $match: { postId } },
-        {
-            $group: {
-                _id: '$postId',
-                likes: { $sum: { $cond: [{ $eq: ['$type', 'like'] }, 1, 0] } },
-                comments: { $sum: { $cond: [{ $eq: ['$type', 'comment'] }, 1, 0] } },
-                reposts: { $sum: { $cond: [{ $eq: ['$type', 'repost'] }, 1, 0] } },
-            }
-        }
-    ])
+    // Fetch counts from Turso
+    const result = await turso.execute({
+        sql: `
+            SELECT 
+                (SELECT COUNT(*) FROM interactions WHERE postId = ? AND type = 'like') as likes,
+                (SELECT COUNT(*) FROM interactions WHERE postId = ? AND type = 'comment') as comments,
+                (SELECT COUNT(*) FROM interactions WHERE postId = ? AND type = 'repost') as reposts
+        `,
+        args: [postId, postId, postId]
+    })
 
-    if (interactions.length === 0) {
+    if (result.rows.length === 0) {
         return 0
     }
 
-    const { likes, comments, reposts } = interactions[0]
+    const row = result.rows[0]
+    const likes = Number(row.likes || 0)
+    const comments = Number(row.comments || 0)
+    const reposts = Number(row.reposts || 0)
 
     // Base engagement score with weighted actions
     const baseScore = (likes * 1.0) + (comments * 2.0) + (reposts * 3.0)

@@ -10,7 +10,12 @@ export async function GET(req: NextRequest) {
         }
         const token = authHeader.split(' ')[1]
         const payload = verifyToken(token)
-        if (!payload) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+        if (!payload) {
+            console.error('Token verification failed for token:', token.substring(0, 10) + '...')
+            return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+        }
+
+        console.log('Verifying user for wallet:', payload.walletAddress)
 
         const userResult = await turso.execute({
             sql: 'SELECT * FROM users WHERE walletAddress = ?',
@@ -18,10 +23,13 @@ export async function GET(req: NextRequest) {
         })
 
         if (userResult.rows.length === 0) {
+            console.warn('User not found in database:', payload.walletAddress)
             return NextResponse.json({ error: 'User not found' }, { status: 404 })
         }
 
-        const user = { ...userResult.rows[0], _id: userResult.rows[0].id }
+        const userRow = userResult.rows[0] as any
+        const user = { ...userRow, _id: userRow.id }
+
         const creatorResult = await turso.execute({
             sql: 'SELECT * FROM creators WHERE userId = ?',
             args: [user.id]
@@ -29,19 +37,20 @@ export async function GET(req: NextRequest) {
 
         let creator = null
         if (creatorResult.rows.length > 0) {
-            creator = { ...creatorResult.rows[0], _id: creatorResult.rows[0].id }
+            const creatorRow = creatorResult.rows[0] as any
+            creator = { ...creatorRow, _id: creatorRow.id }
             // Parse JSON fields if necessary
             if (creator.socialLinks && typeof creator.socialLinks === 'string') {
-                try { creator.socialLinks = JSON.parse(creator.socialLinks as string) } catch { }
+                try { creator.socialLinks = JSON.parse(creator.socialLinks) } catch { }
             }
             if (creator.hashtags && typeof creator.hashtags === 'string') {
-                try { creator.hashtags = JSON.parse(creator.hashtags as string) } catch { }
+                try { creator.hashtags = JSON.parse(creator.hashtags) } catch { }
             }
         }
 
         return NextResponse.json({ user, creator })
-    } catch (e) {
-        console.error('Auth me error:', e)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    } catch (e: any) {
+        console.error('Auth me error details:', e.message, e.stack)
+        return NextResponse.json({ error: 'Internal server error', details: e.message }, { status: 500 })
     }
 }
