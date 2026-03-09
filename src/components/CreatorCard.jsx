@@ -1,31 +1,45 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { truncateWallet } from '../lib/solana';
 import { formatCount } from '../lib/mockData';
-import { useMediaQuery } from '../hooks/useMediaQuery';
 
 export default function CreatorCard({ creator, variant = 'full' }) {
   const { subscriptions, subscribe, unsubscribe } = useApp();
   const navigate = useNavigate();
-  const isMobile = useMediaQuery('(max-width: 767px)');
   const isSubscribed = subscriptions.has(creator.walletAddress);
+
+  const handleSubscribe = (e) => {
+    e.stopPropagation();
+    if (isSubscribed) {
+      unsubscribe(creator.walletAddress);
+    } else {
+      subscribe(creator.walletAddress, creator.subscriptionPrice || 0);
+    }
+  };
 
   if (variant === 'compact') {
     return (
       <div
-        onClick={() => navigate(`/@/${creator.walletAddress}`)}
-        style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+        onClick={() => navigate(`/@/${creator.username}`)}
+        className="flex items-center gap-3 py-3 border-b border-gray-100 last:border-0 cursor-pointer hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors"
       >
-        <img src={creator.avatar} alt="" style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover' }} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{creator.displayName}</div>
-          <div style={{ color: 'var(--text-muted)', fontSize: '12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>@{truncateWallet(creator.walletAddress, 4)}</div>
+        <img 
+          src={creator.avatar} 
+          alt="" 
+          className="w-11 h-11 rounded-full object-cover bg-gray-200" 
+        />
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-sm text-gray-900 truncate">{creator.displayName}</div>
+          <div className="text-xs text-gray-500 truncate">@{creator.username}</div>
         </div>
         <button
-          onClick={(e) => { e.stopPropagation(); isSubscribed ? unsubscribe(creator.walletAddress) : subscribe(creator.walletAddress, creator.subscriptionPriceUsdc); }}
-          style={{ padding: '6px 12px', borderRadius: '999px', border: '1px solid var(--border)', background: isSubscribed ? 'var(--bg-hover)' : 'var(--accent)', color: isSubscribed ? 'var(--text-primary)' : 'white', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+          onClick={handleSubscribe}
+          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+            isSubscribed 
+              ? 'bg-gray-100 text-gray-600 border border-gray-200' 
+              : 'bg-blue-600 text-white'
+          }`}
         >
           {isSubscribed ? 'Following' : 'Follow'}
         </button>
@@ -35,35 +49,48 @@ export default function CreatorCard({ creator, variant = 'full' }) {
 
   return (
     <div
-      onClick={() => navigate(`/@/${creator.walletAddress}`)}
-      style={{ background: 'var(--bg-card)', borderRadius: '24px', border: '1px solid var(--border)', overflow: 'hidden', cursor: 'pointer', transition: 'transform 0.2s', position: 'relative' }}
-      onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
-      onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+      onClick={() => navigate(`/@/${creator.username}`)}
+      className="bg-white border border-gray-200 rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-lg hover:shadow-gray-200/50 hover:-translate-y-1"
     >
-      <div style={{ height: isMobile ? '80px' : '100px', background: 'var(--accent-dim)', position: 'relative' }}>
-        {creator.banner && <img src={creator.banner} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
+      <div className="h-24 bg-gray-100 relative">
+        {creator.banner && (
+          <img 
+            src={creator.banner} 
+            alt="" 
+            className="w-full h-full object-cover" 
+          />
+        )}
       </div>
-      <div style={{ padding: isMobile ? '16px' : '20px', paddingTop: isMobile ? '24px' : '32px' }}>
-        <img src={creator.avatar} alt="" style={{ width: isMobile ? 64 : 80, height: isMobile ? 64 : 80, borderRadius: '50%', border: '4px solid var(--bg-primary)', position: 'absolute', top: isMobile ? '48px' : '60px', left: isMobile ? '16px' : '20px', background: 'var(--bg-secondary)', objectFit: 'cover' }} />
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
-              <div style={{ fontWeight: 800, fontSize: isMobile ? '16px' : '18px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{creator.displayName}</div>
-              {creator.isVerified && <CheckCircle size={14} color="var(--accent)" fill="var(--accent)" />}
+      <div className="p-5 pt-12">
+        <img 
+          src={creator.avatar} 
+          alt="" 
+          className="absolute top-14 left-5 w-20 h-20 rounded-2xl border-4 border-white bg-gray-200 object-cover shadow-md"
+          style={{ top: '5.5rem' }}
+        />
+        <div className="flex justify-between items-start mb-3">
+          <div className="flex-1 min-w-0 pr-2">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <div className="font-bold text-gray-900 truncate">{creator.displayName}</div>
+              {creator.isVerified && <CheckCircle size={14} className="text-blue-600 flex-shrink-0" />}
             </div>
-            <div style={{ color: 'var(--text-muted)', fontSize: '13px' }}>@{truncateWallet(creator.walletAddress, 6)}</div>
+            <div className="text-sm text-gray-500">@{creator.username}</div>
           </div>
           <button
-            onClick={(e) => { e.stopPropagation(); isSubscribed ? unsubscribe(creator.walletAddress) : subscribe(creator.walletAddress, creator.subscriptionPriceUsdc); }}
-            style={{ padding: '8px 16px', borderRadius: '999px', border: 'none', background: isSubscribed ? 'var(--bg-hover)' : 'var(--accent)', color: isSubscribed ? 'var(--text-primary)' : 'white', fontSize: '13px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}
+            onClick={handleSubscribe}
+            className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
+              isSubscribed 
+                ? 'bg-gray-100 text-gray-700 border border-gray-200' 
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
           >
             {isSubscribed ? 'Following' : 'Follow'}
           </button>
         </div>
-        <p style={{ color: 'var(--text-secondary)', fontSize: isMobile ? '13px' : '14px', lineHeight: 1.5, margin: '0 0 16px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{creator.bio}</p>
-        <div style={{ display: 'flex', gap: '16px', fontSize: '13px', color: 'var(--text-muted)' }}>
-          <span><strong>{formatCount(creator.followersCount || 0)}</strong> subscribers</span>
-          <span><strong>{creator.postsCount || 0}</strong> posts</span>
+        <p className="text-sm text-gray-600 line-clamp-2 mb-4">{creator.bio}</p>
+        <div className="flex gap-4 text-xs text-gray-500">
+          <span><strong className="text-gray-700">{formatCount(creator.followersCount || 0)}</strong> subscribers</span>
+          <span><strong className="text-gray-700">{creator.postsCount || 0}</strong> posts</span>
         </div>
       </div>
     </div>

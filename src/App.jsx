@@ -7,8 +7,7 @@ import { useMemo } from 'react';
 import '@solana/wallet-adapter-react-ui/styles.css';
 
 import { AppProvider } from './context/AppContext';
-import Sidebar from './components/Sidebar';
-import RightSidebar from './components/RightSidebar';
+import AppLayout from './layouts/AppLayout';
 import HomePage from './pages/HomePage';
 import DiscoverPage from './pages/DiscoverPage';
 import ProfilePage from './pages/ProfilePage';
@@ -19,42 +18,6 @@ import NotificationsPage from './pages/NotificationsPage';
 import BecomeCreatorPage from './pages/BecomeCreatorPage';
 import AdminPage from './pages/AdminPage';
 import NotFoundPage from './pages/NotFoundPage';
-
-import { useMediaQuery } from './hooks/useMediaQuery';
-import BottomNav from './components/BottomNav';
-
-function Layout({ children, showRight = true }) {
-  const isMobile = useMediaQuery('(max-width: 767px)');
-  const isTablet = useMediaQuery('(min-width: 768px) and (max-width: 1024px)');
-
-  return (
-    <div style={{
-      display: 'flex',
-      minHeight: '100vh',
-      maxWidth: '1280px',
-      margin: '0 auto',
-      position: 'relative',
-    }}>
-      {/* Sidebar: hidden on mobile, always shown on tablet/desktop */}
-      {!isMobile && <Sidebar collapsed={isTablet} />}
-
-      <main style={{
-        flex: 1,
-        padding: isMobile ? '16px 12px 80px 12px' : '0 24px',
-        minWidth: 0,
-        width: '100%',
-      }}>
-        {children}
-      </main>
-
-      {/* Right sidebar: only on desktop */}
-      {!isMobile && !isTablet && showRight && <RightSidebar />}
-
-      {/* Bottom nav: only on mobile */}
-      {isMobile && <BottomNav />}
-    </div>
-  );
-}
 
 export default function App() {
   const endpoint = import.meta.env.VITE_SOLANA_RPC || clusterApiUrl('mainnet-beta');
@@ -70,16 +33,18 @@ export default function App() {
           <AppProvider>
             <BrowserRouter>
               <Routes>
-                <Route path="/" element={<Layout><HomePage /></Layout>} />
-                <Route path="/discover" element={<Layout><DiscoverPage /></Layout>} />
-                <Route path="/following" element={<Layout><FollowingPage /></Layout>} />
-                <Route path="/notifications" element={<Layout><NotificationsPage /></Layout>} />
-                <Route path="/messages" element={<Layout showRight={false}><MessagesPage /></Layout>} />
-                <Route path="/wallet" element={<Layout showRight={false}><WalletPage /></Layout>} />
-                <Route path="/become-creator" element={<Layout showRight={false}><BecomeCreatorPage /></Layout>} />
-                <Route path="/@/:walletAddress" element={<Layout><ProfilePage /></Layout>} />
+                <Route element={<AppLayout />}>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/discover" element={<DiscoverPage />} />
+                  <Route path="/following" element={<FollowingPage />} />
+                  <Route path="/notifications" element={<NotificationsPage />} />
+                  <Route path="/messages" element={<MessagesPage />} />
+                  <Route path="/wallet" element={<WalletPage />} />
+                  <Route path="/become-creator" element={<BecomeCreatorPage />} />
+                  <Route path="/@/:walletAddress" element={<ProfilePage />} />
+                </Route>
                 <Route path="/admin" element={<AdminPage />} />
-                <Route path="/promotions" element={<Layout><div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)' }}>Promotions coming soon</div></Layout>} />
+                <Route path="/promotions" element={<div className="p-10 text-center text-gray-500">Promotions coming soon</div>} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </BrowserRouter>

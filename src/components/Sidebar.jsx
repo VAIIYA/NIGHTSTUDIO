@@ -1,12 +1,12 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home, Compass, Bell, Mail, Bookmark, User, PlusSquare, MoreHorizontal, Settings, Zap, DollarSign, LayoutDashboard } from 'lucide-react';
+import { Home, Compass, Bell, Mail, Bookmark, User, PlusSquare, Zap } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { truncateWallet } from '../lib/solana';
 
-export default function Sidebar({ collapsed = false }) {
+export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isConnected, wallet, user, disconnectWallet, usdcBalance } = useApp();
+  const { isConnected, wallet, user, usdcBalance } = useApp();
 
   const menuItems = [
     { icon: Home, label: 'Home', path: '/' },
@@ -14,219 +14,88 @@ export default function Sidebar({ collapsed = false }) {
     { icon: Bell, label: 'Notifications', path: '/notifications' },
     { icon: Mail, label: 'Messages', path: '/messages' },
     { icon: Bookmark, label: 'Following', path: '/following' },
-    { icon: DollarSign, label: 'Wallet', path: '/wallet' },
+  ];
+
+  const bottomItems = [
     { icon: User, label: 'Profile', path: isConnected ? `/@/${wallet}` : '/wallet' },
   ];
 
-  const adminItem = { icon: LayoutDashboard, label: 'Admin', path: '/admin' };
-  const isAdmin = wallet === '2Z9eW3nwa2GZUM1JzXdfBK1MN57RPA2PrhuTREEZ31VY';
-
   const isCreator = user?.is_creator === 1;
+  const isActive = (path) => location.pathname === path || 
+    (path === '/' && location.pathname === '/') ||
+    (path === '/discover' && location.pathname.startsWith('/discover'));
 
   return (
-    <div style={{
-      width: collapsed ? '80px' : '280px',
-      height: '100vh',
-      position: 'fixed',
-      borderRight: '1px solid var(--border)',
-      padding: collapsed ? '24px 12px' : '24px',
-      display: 'flex',
-      flexDirection: 'column',
-      zIndex: 100,
-      transition: 'width 0.2s ease',
-    }}>
-      {/* Logo */}
-      <div
-        onClick={() => navigate('/')}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          marginBottom: '40px',
-          cursor: 'pointer',
-          justifyContent: collapsed ? 'center' : 'flex-start',
-        }}
-        title="Bunny Ranch"
-      >
-        <div style={{
-          width: '40px',
-          height: '40px',
-          background: 'linear-gradient(135deg, var(--accent), #ff8c00)',
-          borderRadius: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '20px',
-          boxShadow: '0 4px 12px rgba(124, 92, 252, 0.3)',
-          flexShrink: 0,
-        }}>🐰</div>
-        {!collapsed && (
-          <span style={{
-            fontFamily: 'Syne',
-            fontWeight: 800,
-            fontSize: '22px',
-            letterSpacing: '-0.5px',
-            background: 'linear-gradient(to right, #fff, #888)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            whiteSpace: 'nowrap'
-          }}>Bunny Ranch</span>
-        )}
-      </div>
+    <aside className="w-60 flex-shrink-0 h-screen sticky top-0 border-r border-gray-200 bg-white flex flex-col">
+      <div className="p-6">
+        <div 
+          onClick={() => navigate('/')}
+          className="flex items-center gap-3 cursor-pointer mb-10"
+        >
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+            <span className="text-white text-xl font-bold">N</span>
+          </div>
+          <span className="font-bold text-xl text-gray-900 tracking-tight">NightStudio</span>
+        </div>
 
-      {/* Navigation */}
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
-        {menuItems.map(item => (
-          <button
-            key={item.label}
-            onClick={() => navigate(item.path)}
-            title={collapsed ? item.label : ''}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '16px',
-              padding: '12px 16px',
-              borderRadius: '12px',
-              border: 'none',
-              background: location.pathname === item.path ? 'var(--bg-hover)' : 'transparent',
-              color: location.pathname === item.path ? 'var(--accent)' : 'var(--text-secondary)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              textAlign: 'left',
-              fontFamily: 'DM Sans',
-              fontWeight: location.pathname === item.path ? 700 : 500,
-              fontSize: '16px',
-              justifyContent: collapsed ? 'center' : 'flex-start',
-            }}
-          >
-            <item.icon size={22} color={location.pathname === item.path ? 'var(--accent)' : 'currentColor'} style={{ flexShrink: 0 }} />
-            {!collapsed && item.label}
-          </button>
-        ))}
-
-        {isAdmin && (
-          <button
-            onClick={() => navigate(adminItem.path)}
-            title={collapsed ? adminItem.label : ''}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '16px',
-              padding: '12px 16px',
-              borderRadius: '12px',
-              border: 'none',
-              background: location.pathname === adminItem.path ? 'var(--bg-hover)' : 'transparent',
-              color: location.pathname === adminItem.path ? 'var(--accent)' : 'var(--text-secondary)',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              textAlign: 'left',
-              fontFamily: 'DM Sans',
-              fontWeight: 700,
-              fontSize: '16px',
-              marginTop: '4px',
-              justifyContent: collapsed ? 'center' : 'flex-start',
-            }}
-          >
-            <adminItem.icon size={22} color={location.pathname === adminItem.path ? 'var(--accent)' : 'currentColor'} style={{ flexShrink: 0 }} />
-            {!collapsed && adminItem.label}
-          </button>
-        )}
+        <nav className="flex flex-col gap-1">
+          {menuItems.map((item) => {
+            const active = isActive(item.path);
+            return (
+              <button
+                key={item.label}
+                onClick={() => navigate(item.path)}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-left font-medium transition-all duration-200 ${
+                  active 
+                    ? 'bg-blue-50 text-blue-600' 
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+              >
+                <item.icon size={20} className={active ? 'text-blue-600' : ''} />
+                <span className={active ? 'font-semibold' : ''}>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
 
         <button
           onClick={() => isCreator ? navigate(`/@/${wallet}`) : navigate('/become-creator')}
-          title={collapsed ? (isCreator ? 'My Page' : 'Become a Creator') : ''}
-          style={{
-            marginTop: '24px',
-            background: isCreator ? 'var(--bg-secondary)' : 'var(--accent)',
-            color: 'white',
-            width: collapsed ? '44px' : '100%',
-            height: collapsed ? '44px' : 'auto',
-            padding: collapsed ? '0' : '14px',
-            borderRadius: collapsed ? '50%' : '999px',
-            border: isCreator ? '1px solid var(--border)' : 'none',
-            fontFamily: 'Syne',
-            fontWeight: 700,
-            fontSize: '15px',
-            cursor: 'pointer',
-            transition: 'transform 0.2s ease',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            boxShadow: isCreator ? 'none' : '0 10px 20px rgba(124, 92, 252, 0.2)',
-            alignSelf: collapsed ? 'center' : 'stretch',
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-          onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+          className={`mt-6 w-full py-3.5 px-4 rounded-full font-semibold text-sm flex items-center justify-center gap-2 transition-all duration-200 ${
+            isCreator 
+              ? 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200' 
+              : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/25 hover:shadow-blue-600/30'
+          }`}
         >
-          {collapsed ? (
-            isCreator ? <User size={20} /> : <PlusSquare size={20} />
-          ) : (
-            <>
-              {isCreator ? (
-                <>My Page →</>
-              ) : (
-                <>
-                  <PlusSquare size={18} />
-                  Become a Creator
-                </>
-              )}
-            </>
-          )}
+          <PlusSquare size={18} />
+          {isCreator ? 'My Page →' : 'Become a Creator'}
         </button>
-      </nav>
+      </div>
 
-      {/* User Info */}
-      <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: '24px', position: 'relative' }}>
+      <div className="mt-auto p-6 border-t border-gray-200">
         {isConnected ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', justifyContent: collapsed ? 'center' : 'flex-start' }}>
-            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--accent-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <User size={20} color="var(--accent)" />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+              <User size={20} className="text-blue-600" />
             </div>
-            {!collapsed && (
-              <>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {user?.display_name || truncateWallet(wallet)}
-                  </div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
-                    {usdcBalance.toFixed(2)} USDC
-                  </div>
-                </div>
-                <button
-                  onClick={disconnectWallet}
-                  style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
-                >
-                  <MoreHorizontal size={18} />
-                </button>
-              </>
-            )}
+            <div className="flex-1 min-w-0">
+              <div className="font-semibold text-sm text-gray-900 truncate">
+                {user?.display_name || truncateWallet(wallet)}
+              </div>
+              <div className="text-xs text-gray-500">
+                {usdcBalance.toFixed(2)} USDC
+              </div>
+            </div>
           </div>
         ) : (
           <button
             onClick={() => navigate('/wallet')}
-            title={collapsed ? 'Connect Wallet' : ''}
-            style={{
-              width: collapsed ? '44px' : '100%',
-              height: collapsed ? '44px' : 'auto',
-              padding: collapsed ? '0' : '12px',
-              borderRadius: collapsed ? '50%' : '12px',
-              border: 'none',
-              background: 'var(--bg-secondary)',
-              color: 'var(--accent)',
-              fontWeight: 700,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
+            className="w-full py-3 px-4 rounded-xl bg-gray-100 text-blue-600 font-semibold flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
           >
-            <Zap size={16} fill="var(--accent)" />
-            {!collapsed && 'Connect Wallet'}
+            <Zap size={16} className="fill-blue-600" />
+            Connect Wallet
           </button>
         )}
       </div>
-    </div>
+    </aside>
   );
 }

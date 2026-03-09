@@ -1,87 +1,87 @@
-import { useState, useEffect } from 'react';
-import { Search, MapPin, Users, Heart, Star, LayoutGrid, List } from 'lucide-react';
+import { useState } from 'react';
+import { Search, Star, Heart } from 'lucide-react';
 import { MOCK_CREATORS } from '../lib/mockData';
 import { useNavigate } from 'react-router-dom';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 const CATEGORIES = ['All', 'Lifestyle', 'Fitness', 'Fashion', 'Beauty', 'Art', 'Travel'];
-
-import { useMediaQuery } from '../hooks/useMediaQuery';
 
 export default function DiscoverPage() {
   const [activeCategory, setActiveCategory] = useState('All');
   const navigate = useNavigate();
   const isMobile = useMediaQuery('(max-width: 767px)');
 
-  useEffect(() => {
-    document.title = 'Bunny Ranch — Discover';
-  }, []);
+  const filteredCreators = activeCategory === 'All' 
+    ? MOCK_CREATORS 
+    : MOCK_CREATORS.filter(c => c.tags?.includes(activeCategory.toLowerCase()));
 
   return (
-    <div style={{ padding: isMobile ? '0' : '20px 0' }}>
-      <header style={{ marginBottom: '32px' }}>
-        <h1 style={{ fontFamily: 'Syne', fontWeight: 800, fontSize: isMobile ? '24px' : '28px', marginBottom: '8px' }}>Discover</h1>
-        <p style={{ color: 'var(--text-muted)' }}>Find your next favorite creators</p>
+    <div className="max-w-5xl">
+      <header className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Discover</h1>
+        <p className="text-gray-500">Find your next favorite creators</p>
       </header>
 
-      {/* Search Bar */}
-      <div style={{ position: 'relative', marginBottom: isMobile ? '20px' : '32px' }}>
-        <Search size={20} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+      <div className="relative mb-8">
+        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
           type="text"
           placeholder="Search creators..."
-          style={{ width: '100%', padding: '16px 16px 16px 52px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '16px', color: 'var(--text-primary)', fontFamily: 'DM Sans', fontSize: '16px' }}
+          className="w-full pl-11 pr-4 py-3 rounded-xl text-sm"
         />
       </div>
 
-      {/* Categories */}
-      <div
-        className="scroll-x-mobile"
-        style={{
-          display: 'flex',
-          gap: '8px',
-          overflowX: 'auto',
-          paddingBottom: '16px',
-          marginBottom: '32px',
-          marginLeft: isMobile ? '-12px' : '0',
-          marginRight: isMobile ? '-12px' : '0',
-          paddingLeft: isMobile ? '12px' : '0',
-          paddingRight: isMobile ? '12px' : '0',
-        }}
+      <div 
+        className="flex gap-2 overflow-x-auto pb-4 mb-8 -mx-4 px-4 scroll-x-mobile"
       >
         {CATEGORIES.map(cat => (
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
-            style={{
-              padding: '10px 20px', borderRadius: '12px', border: '1.5px solid var(--border)',
-              background: activeCategory === cat ? 'var(--accent)' : 'transparent',
-              color: activeCategory === cat ? 'white' : 'var(--text-secondary)',
-              fontWeight: 700, fontSize: '14px', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.2s', fontFamily: 'Syne'
-            }}
-          >{cat}</button>
+            className={`px-5 py-2.5 rounded-xl font-semibold text-sm whitespace-nowrap transition-all duration-200 ${
+              activeCategory === cat
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
+            }`}
+          >
+            {cat}
+          </button>
         ))}
       </div>
 
-      {/* Featured Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: '20px' }}>
-        {MOCK_CREATORS.map(creator => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {filteredCreators.map((creator) => (
           <div
             key={creator.id}
             onClick={() => navigate(`/@/${creator.username}`)}
-            style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '24px', overflow: 'hidden', cursor: 'pointer' }}
+            className="bg-white border border-gray-200 rounded-2xl overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-lg hover:shadow-gray-200/50 hover:-translate-y-1"
           >
-            <div style={{ height: '140px', background: 'var(--bg-hover)', position: 'relative' }}>
-              <img src={`https://images.unsplash.com/photo-1579540673398-9fdd95019387?w=400&q=80&seed=${creator.username}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              <div style={{ position: 'absolute', bottom: '-24px', left: '16px' }}>
-                <img src={creator.avatar} alt="" style={{ width: '48px', height: '48px', borderRadius: '16px', border: '4px solid var(--bg-card)', background: 'var(--bg-secondary)' }} />
+            <div className="h-36 bg-gray-100 relative">
+              <img 
+                src={`https://images.unsplash.com/photo-1579540673398-9fdd95019387?w=400&q=80&seed=${creator.username}`} 
+                alt="" 
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute -bottom-6 left-4">
+                <img 
+                  src={creator.avatar} 
+                  alt="" 
+                  className="w-12 h-12 rounded-2xl border-4 border-white bg-gray-200 object-cover"
+                />
               </div>
             </div>
-            <div style={{ padding: '32px 16px 16px' }}>
-              <div style={{ fontWeight: 800, fontFamily: 'Syne', fontSize: '16px', marginBottom: '4px' }}>{creator.displayName}</div>
-              <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '12px' }}>@{creator.username}</div>
-              <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Star size={14} color="var(--accent)" fill="var(--accent)" /> 4.9</span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Heart size={14} color="#f43f5e" /> 12k</span>
+            <div className="pt-8 pb-4 px-4">
+              <div className="font-bold text-gray-900 mb-1">{creator.displayName}</div>
+              <div className="text-sm text-gray-500 mb-3">@{creator.username}</div>
+              <div className="flex gap-4 text-xs text-gray-500">
+                <span className="flex items-center gap-1">
+                  <Star size={14} className="text-yellow-500 fill-yellow-500" />
+                  <span className="font-semibold text-gray-700">4.9</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <Heart size={14} className="text-rose-500" />
+                  <span className="font-semibold text-gray-700">12K</span>
+                </span>
               </div>
             </div>
           </div>
