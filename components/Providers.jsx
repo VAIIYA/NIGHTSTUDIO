@@ -19,11 +19,11 @@ export default function Providers({ children }) {
     <ConnectionProvider endpoint={endpoint}>
       <WalletProvider wallets={wallets} autoConnect>
         <WalletModalProvider>
-          <AppProvider>
-            <ToastProvider>
+          <ToastProvider>
+            <AppProvider>
               {children}
-            </ToastProvider>
-          </AppProvider>
+            </AppProvider>
+          </ToastProvider>
         </WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
