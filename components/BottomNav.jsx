@@ -1,15 +1,14 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Compass, Bell, MessageCircle, User } from 'lucide-react';
+import { Home, Compass, Bell, UserCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const NAV = [
   { icon: Home, label: 'Home', path: '/' },
   { icon: Compass, label: 'Discover', path: '/discover' },
   { icon: Bell, label: 'Alerts', path: '/notifications', badge: true },
-  { icon: MessageCircle, label: 'Messages', path: '/messages' },
-  { icon: User, label: 'Profile', path: '/wallet' },
+  { icon: UserCircle, label: 'Profile', path: '/profile' },
 ];
 
 export default function BottomNav() {
@@ -19,30 +18,37 @@ export default function BottomNav() {
   return (
     <nav style={{
       position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1000,
-      background: 'var(--bg-secondary)',
-      borderTop: '1px solid var(--border)',
+      background: 'white',
+      borderTop: '1px solid #E8E8E8',
       display: 'flex',
-      paddingBottom: 'env(safe-area-inset-bottom, 8px)',
+      height: 64,
+      paddingBottom: 'env(safe-area-inset-bottom, 0)',
+      boxShadow: '0 -2px 10px rgba(0,0,0,0.04)',
     }}>
       {NAV.map(({ icon: Icon, label, path, badge }) => {
         const active = pathname === path;
         return (
           <Link key={path} href={path} style={{
-            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-            padding: '10px 4px 6px',
-            color: active ? 'var(--accent)' : 'var(--text-muted)',
-            fontSize: 10, fontWeight: active ? 700 : 400, gap: 4,
-            position: 'relative',
-            transition: 'color 0.12s',
+            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            color: active ? '#F6851B' : '#9FA6AE',
+            fontSize: 10, fontWeight: active ? 700 : 500, gap: 4,
+            transition: 'all 0.2s',
+            textDecoration: 'none'
           }}>
-            {active && <div style={{ position: 'absolute', top: 6, width: 4, height: 4, background: 'var(--accent)', borderRadius: '50%' }} />}
             <div style={{ position: 'relative' }}>
-              <Icon size={20} />
+              <Icon size={24} />
               {badge && notifications > 0 && (
-                <span style={{ position: 'absolute', top: -4, right: -6, background: 'var(--accent)', color: 'white', borderRadius: 999, fontSize: 9, fontWeight: 700, minWidth: 14, height: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px' }}>{notifications}</span>
+                <span style={{
+                  position: 'absolute', top: -2, right: -4,
+                  background: '#F6851B', color: 'white',
+                  borderRadius: 999, fontSize: 10, fontWeight: 700,
+                  minWidth: 16, height: 16,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '0 4px', border: '2px solid white'
+                }}>{notifications}</span>
               )}
             </div>
-            <span>{label}</span>
+            <span style={{ letterSpacing: '0.2px' }}>{label}</span>
           </Link>
         );
       })}

@@ -3,12 +3,14 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { CheckCircle, ChevronRight, Zap } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { supabase } from '../../lib/supabase';
+import { useToast } from '../../components/Toast';
 import { updateUserProfile } from '../../lib/db';
 import WalletConnect from '../../components/WalletConnect';
 import { calculateSplit } from '../../lib/solana';
 
 const STEP_LABELS = ['Profile', 'Pricing', 'Launch'];
-const TAGS = ['lifestyle','fitness','fashion','beauty','art','aesthetic','travel','gaming','cooking','music','wellness','modeling'];
+const TAGS = ['lifestyle', 'fitness', 'fashion', 'beauty', 'art', 'aesthetic', 'travel', 'gaming', 'cooking', 'music', 'wellness', 'modeling'];
 
 export default function BecomeCreatorPage() {
   const router = useRouter();
@@ -30,24 +32,33 @@ export default function BecomeCreatorPage() {
 
   const split = calculateSplit(form.subscription_price_usdc || 10);
 
+  const { success, error: toastError } = useToast();
+
   const handleLaunch = async () => {
     setLoading(true);
     try {
-      const updated = await updateUserProfile(wallet, {
-        display_name: form.display_name,
-        bio: form.bio,
-        avatar_url: form.avatar_url,
-        is_creator: 1,
-        subscription_price_usdc: parseFloat(form.subscription_price_usdc) || 0,
-        trial_days: parseInt(form.trial_days) || 0,
-      });
-      setUser(updated || { ...user, is_creator: 1 });
+      const { data, error } = await supabase
+        .from('creators')
+        .upsert({
+          wallet_address: wallet,
+          display_name: form.display_name,
+          bio: form.bio,
+          avatar_url: form.avatar_url,
+          tags: form.tags,
+          subscription_price: parseFloat(form.subscription_price_usdc) || 0,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setUser({ ...data, is_creator: true });
+      success('Creator profile created successfully!');
       setLaunched(true);
-      setTimeout(() => router.push(`/@/${wallet}`), 1500);
+      setTimeout(() => router.push('/profile'), 1500);
     } catch (err) {
       console.error(err);
-      setLaunched(true);
-      setTimeout(() => router.push(`/@/${wallet}`), 1500);
+      toastError('Failed to create profile. Please try again.');
     }
     setLoading(false);
   };
@@ -91,6 +102,9 @@ export default function BecomeCreatorPage() {
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--text-secondary)' }}>Display Name *</label>
             <input value={form.display_name} onChange={e => update('display_name', e.target.value)} placeholder="Your creator name" />
+            {form.display_name && form.display_name.length < 3 && (
+              <p className="text-red-500 text-sm mt-1">Display name must be at least 3 characters</p>
+            )}
           </div>
           <div>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--text-secondary)' }}>Bio</label>
@@ -110,7 +124,7 @@ export default function BecomeCreatorPage() {
               ))}
             </div>
           </div>
-          <button onClick={() => setStep(1)} disabled={!form.display_name.trim()} style={{ padding: '14px', borderRadius: 999, border: 'none', background: form.display_name.trim() ? 'var(--gradient-orange)' : 'var(--bg-hover)', color: 'white', fontWeight: 800, fontSize: 15, fontFamily: 'var(--font-jakarta)', marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <button onClick={() => setStep(1)} disabled={form.display_name.length < 3} style={{ padding: '14px', borderRadius: 999, border: 'none', background: form.display_name.length >= 3 ? 'var(--accent)' : '#E8E8E8', color: 'white', fontWeight: 800, fontSize: 15, fontFamily: 'var(--font-jakarta)', marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             Continue <ChevronRight size={16} />
           </button>
         </div>

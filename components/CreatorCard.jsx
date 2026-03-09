@@ -2,74 +2,66 @@
 import Link from 'next/link';
 import { CheckCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { formatCount, truncateWallet } from '../lib/mockData';
 
 export default function CreatorCard({ creator, compact = false }) {
-  const { subscriptions, subscribe } = useApp();
+  const { subscriptions, toggleFollow } = useApp();
   const isFollowing = subscriptions.has(creator.wallet_address);
 
   const handleFollow = (e) => {
     e.preventDefault();
-    subscribe(creator.wallet_address, creator.subscription_price_usdc);
+    e.stopPropagation();
+    toggleFollow(creator.id, creator.wallet_address);
   };
+
+  const walletShort = creator.wallet_address ? `${creator.wallet_address.slice(0, 4)}...${creator.wallet_address.slice(-4)}` : '';
 
   if (compact) {
     return (
-      <Link href={`/@/${creator.wallet_address}`} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+      <Link href={`/creator/${creator.wallet_address}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: '1px solid #E8E8E8', background: 'white', textDecoration: 'none' }}>
         <div style={{ position: 'relative', flexShrink: 0 }}>
-          <img src={creator.avatar_url} alt="" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover' }} />
-          {creator.is_online && <span className="online-pulse" style={{ position: 'absolute', bottom: 0, right: 0, width: 9, height: 9, background: 'var(--green)', borderRadius: '50%', border: '2px solid var(--bg-card)' }} />}
+          <img src={creator.avatar_url || 'https://via.placeholder.com/150'} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600, fontSize: 13 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700, fontSize: 14, color: '#24272A' }}>
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{creator.display_name}</span>
-            {creator.is_verified === 1 && <CheckCircle size={12} color="var(--accent)" fill="var(--accent)" />}
+            {creator.is_verified && <CheckCircle size={12} color="#037DD6" fill="#037DD6" />}
           </div>
-          <div style={{ color: 'var(--text-muted)', fontSize: 11, fontFamily: 'monospace' }}>{truncateWallet(creator.wallet_address)}</div>
+          <div style={{ color: '#6A737D', fontSize: 12 }}>{walletShort}</div>
         </div>
-        <button onClick={handleFollow} style={{ padding: '5px 12px', borderRadius: 999, border: isFollowing ? '1px solid var(--border-light)' : 'none', background: isFollowing ? 'transparent' : 'var(--gradient-orange)', color: isFollowing ? 'var(--text-muted)' : 'white', fontSize: 11, fontWeight: 700, flexShrink: 0, fontFamily: 'var(--font-jakarta)' }}>
-          {isFollowing ? '✓' : 'Follow'}
+        <button onClick={handleFollow} className={isFollowing ? 'btn-secondary' : 'btn-primary'} style={{ padding: '6px 16px', fontSize: 12 }}>
+          {isFollowing ? 'Following' : 'Follow'}
         </button>
       </Link>
     );
   }
 
   return (
-    <Link href={`/@/${creator.wallet_address}`} style={{ display: 'block', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', transition: 'box-shadow 0.15s, transform 0.15s' }}
-      onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 0 0 1px var(--accent), 0 8px 32px rgba(246,133,27,0.1)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-      onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'translateY(0)'; }}
-    >
-      <div style={{ height: 90, overflow: 'hidden', background: 'var(--bg-hover)', position: 'relative' }}>
-        <img src={creator.banner_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.5))' }} />
-      </div>
-      <div style={{ padding: '0 14px 14px' }}>
-        <div style={{ marginTop: -20, marginBottom: 8, position: 'relative', width: 'fit-content' }}>
-          <img src={creator.avatar_url} alt="" style={{ width: 46, height: 46, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--bg-card)' }} />
-          {creator.is_online && <span className="online-pulse" style={{ position: 'absolute', bottom: 2, right: 2, width: 11, height: 11, background: 'var(--green)', borderRadius: '50%', border: '2px solid var(--bg-card)' }} />}
+    <Link href={`/creator/${creator.wallet_address}`} className="card" style={{ display: 'block', overflow: 'hidden', transition: 'all 0.2s', textDecoration: 'none' }}>
+      <div style={{ height: 100, background: creator.cover_url ? `url(${creator.cover_url})` : '#F8F8F8', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+      <div style={{ padding: '0 16px 16px' }}>
+        <div style={{ marginTop: -24, marginBottom: 12, position: 'relative' }}>
+          <img src={creator.avatar_url || 'https://via.placeholder.com/150'} alt="" style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', border: '3px solid white' }} />
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 700, fontSize: 14, fontFamily: 'var(--font-jakarta)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 800, fontSize: 16, color: '#24272A' }}>
               {creator.display_name}
-              {creator.is_verified === 1 && <CheckCircle size={13} color="var(--accent)" fill="var(--accent)" />}
+              {creator.is_verified && <CheckCircle size={14} color="#037DD6" fill="#037DD6" />}
             </div>
-            <div style={{ color: 'var(--text-muted)', fontSize: 11, fontFamily: 'monospace' }}>{truncateWallet(creator.wallet_address)}</div>
+            <div style={{ color: '#6A737D', fontSize: 12 }}>{walletShort}</div>
           </div>
-          <button onClick={handleFollow} style={{ padding: '6px 14px', borderRadius: 999, border: isFollowing ? '1px solid var(--border-light)' : 'none', background: isFollowing ? 'transparent' : 'var(--gradient-orange)', color: isFollowing ? 'var(--text-muted)' : 'white', fontSize: 12, fontWeight: 700, flexShrink: 0, fontFamily: 'var(--font-jakarta)' }}>
+          <button onClick={handleFollow} className={isFollowing ? 'btn-secondary' : 'btn-primary'} style={{ padding: '8px 20px', fontSize: 13 }}>
             {isFollowing ? 'Following' : 'Follow'}
           </button>
         </div>
-        {creator.bio && <p style={{ color: 'var(--text-secondary)', fontSize: 12, margin: '0 0 8px', lineHeight: 1.4 }}>{creator.bio}</p>}
-        <div style={{ display: 'flex', gap: 14, fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
-          <span><strong style={{ color: 'var(--text-primary)' }}>{formatCount(creator.followersCount)}</strong> followers</span>
-          <span><strong style={{ color: 'var(--text-primary)' }}>{creator.postsCount}</strong> posts</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 12, color: creator.subscription_price_usdc === 0 ? 'var(--green)' : 'var(--accent)', fontWeight: 600 }}>
-            {creator.subscription_price_usdc === 0 ? '✓ Free' : `${creator.subscription_price_usdc} USDC/mo`}
-          </span>
-          {creator.trial_days > 0 && <span style={{ fontSize: 11, background: 'var(--green-dim)', color: 'var(--green)', padding: '2px 8px', borderRadius: 6, fontWeight: 600 }}>{creator.trial_days}d free trial</span>}
+        {creator.bio && <p style={{ color: '#6A737D', fontSize: 13, margin: '0 0 12px', lineHeight: 1.5, height: 40, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{creator.bio}</p>}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, borderTop: '1px solid #E8E8E8' }}>
+          <div style={{ color: '#F6851B', fontWeight: 700, fontSize: 14 }}>
+            {creator.subscription_price == 0 ? 'Free' : `${creator.subscription_price} USDC/mo`}
+          </div>
+          <div style={{ color: '#9FA6AE', fontSize: 12 }}>
+            {creator.follower_count || 0} followers
+          </div>
         </div>
       </div>
     </Link>

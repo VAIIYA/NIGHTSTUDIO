@@ -1,122 +1,150 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
-import { Heart, MessageCircle, Share2, Lock, Zap, CheckCircle, Play, X } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Lock, Zap, CheckCircle, Play, X, MoreHorizontal } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { timeAgo, calculateSplit } from '../lib/mockData';
-import { truncateWallet } from '../lib/solana';
+import { useToast } from './Toast';
 
 export default function PostCard({ post, creator }) {
-  const { unlockedPosts, unlockPost, subscriptions, isConnected } = useApp();
-  const [liked, setLiked] = useState(post.isLiked);
-  const [likesCount, setLikesCount] = useState(post.likesCount || post.likes_count || 0);
+  const { unlockedPosts, unlockPost, subscriptions, isConnected, wallet } = useApp();
+  const { success, error: toastError } = useToast();
+  const [liked, setLiked] = useState(false);
+  const [likesCount, setLikesCount] = useState(post.like_count || 0);
   const [unlocking, setUnlocking] = useState(false);
-  const [error, setError] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const isSubscribed = subscriptions.has(post.creator_wallet);
-  const isUnlocked = !post.is_locked || isSubscribed || unlockedPosts.has(post.id);
-  const split = post.price_usdc ? calculateSplit(post.price_usdc) : null;
+  const isSubscribed = subscriptions.has(creator?.wallet_address);
+  const isOwner = wallet === creator?.wallet_address;
+  const isUnlocked = !post.is_locked || isSubscribed || isOwner || unlockedPosts.has(post.id);
 
   const handleUnlock = async () => {
     setShowConfirm(false);
     setUnlocking(true);
-    setError('');
     try {
-      await unlockPost(post.id, post.creator_wallet, post.price_usdc);
+      await unlockPost(post.id, creator.wallet_address, post.unlock_price);
+      success('Post unlocked successfully!');
     } catch (err) {
-      setError(err.message || 'Transaction failed');
+      console.error(err);
+      toastError(err.message || 'Unlock failed');
     }
     setUnlocking(false);
   };
 
+  const creatorShort = creator?.wallet_address ? `${creator.wallet_address.slice(0, 4)}...${creator.wallet_address.slice(-4)}` : '';
+
   return (
-    <article style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', marginBottom: 12, transition: 'box-shadow 0.2s, transform 0.2s' }}
-      onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.4)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
-      onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'translateY(0)'; }}
-    >
+    <article className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 20 }}>
       {/* Header */}
-      <div style={{ padding: '14px 16px 10px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Link href={`/@/${post.creator_wallet}`} style={{ position: 'relative', flexShrink: 0 }}>
-          <img src={creator?.avatar_url} alt="" style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover' }} />
-          {creator?.is_online && <span className="online-pulse" style={{ position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, background: 'var(--green)', borderRadius: '50%', border: '2px solid var(--bg-card)' }} />}
+      <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Link href={`/creator/${creator?.wallet_address}`} style={{ flexShrink: 0 }}>
+          <img src={creator?.avatar_url || 'https://via.placeholder.com/150'} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} />
         </Link>
-        <div style={{ flex: 1 }}>
-          <Link href={`/@/${post.creator_wallet}`} style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600, fontSize: 14, fontFamily: 'var(--font-jakarta)' }}>
-            {creator?.display_name}
-            {creator?.is_verified === 1 && <CheckCircle size={13} color="var(--accent)" fill="var(--accent)" />}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <Link href={`/creator/${creator?.wallet_address}`} style={{ display: 'flex', alignItems: 'center', gap: 4, fontWeight: 800, fontSize: 15, color: '#24272A', textDecoration: 'none' }}>
+            {creator?.display_name || 'Creator'}
+            {creator?.is_verified && <CheckCircle size={14} color="#037DD6" fill="#037DD6" />}
           </Link>
-          <div style={{ color: 'var(--text-muted)', fontSize: 11, fontFamily: 'monospace' }}>
-            {truncateWallet(post.creator_wallet)} · {timeAgo(post.created_at)}
+          <div style={{ color: '#6A737D', fontSize: 12 }}>
+            {creatorShort} • {new Date(post.created_at).toLocaleDateString()}
           </div>
         </div>
+        <button style={{ background: 'none', border: 'none', color: '#9FA6AE' }}><MoreHorizontal size={20} /></button>
       </div>
 
-      {post.text && <div style={{ padding: '0 16px 10px', fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{post.text}</div>}
+      {/* Content */}
+      <div style={{ padding: '0 16px 12px', fontSize: 15, color: '#24272A', lineHeight: 1.5 }}>
+        <div style={{ fontWeight: 800, marginBottom: 4 }}>{post.title}</div>
+        <div style={{ whiteSpace: 'pre-wrap' }}>{post.content}</div>
+      </div>
 
       {/* Media */}
-      <div style={{ position: 'relative', minHeight: 280 }}>
-        <img src={post.thumbnail} alt="" style={{ width: '100%', height: 340, objectFit: 'cover', display: 'block', filter: isUnlocked ? 'none' : 'blur(20px)', transform: isUnlocked ? 'none' : 'scale(1.05)', transition: 'filter 0.4s, transform 0.4s' }} />
-        {post.mediaType === 'video' && isUnlocked && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ width: 52, height: 52, background: 'rgba(0,0,0,0.7)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
-              <Play size={22} color="white" fill="white" />
-            </div>
-          </div>
-        )}
+      <div style={{ position: 'relative', overflow: 'hidden', background: '#F8F8F8' }}>
+        {post.media_url ? (
+          <div style={{ position: 'relative', minHeight: 100 }}>
+            <img
+              src={post.media_url}
+              alt=""
+              style={{
+                width: '100%',
+                display: 'block',
+                filter: isUnlocked ? 'none' : 'blur(40px)',
+                transform: isUnlocked ? 'none' : 'scale(1.1)',
+                transition: 'all 0.5s',
+                maxHeight: 500,
+                objectFit: 'contain'
+              }}
+            />
 
-        {/* Confirm modal */}
-        {showConfirm && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 20, padding: 24, maxWidth: 280, width: '90%', textAlign: 'center' }}>
-              <button onClick={() => setShowConfirm(false)} style={{ position: 'absolute', top: 12, right: 12, background: 'none', border: 'none', color: 'var(--text-muted)' }}><X size={16} /></button>
-              <div style={{ fontFamily: 'var(--font-jakarta)', fontWeight: 800, fontSize: 16, marginBottom: 8 }}>Unlock this post</div>
-              <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--accent)', fontFamily: 'var(--font-jakarta)', marginBottom: 12 }}>{post.price_usdc} USDC</div>
-              {split && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16, lineHeight: 1.6 }}>Creator gets {split.creator} USDC · Fee {(split.developer + split.broker).toFixed(2)} USDC</div>}
-              <button onClick={handleUnlock} style={{ width: '100%', padding: '12px', borderRadius: 999, border: 'none', background: 'var(--gradient-orange)', color: 'white', fontWeight: 700, fontSize: 14, fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                <Zap size={15} /> Confirm & Pay
-              </button>
-            </div>
-          </div>
-        )}
+            {/* Lock overlay */}
+            {!isUnlocked && !showConfirm && (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.4)', backdropFilter: 'blur(4px)' }}>
+                <div style={{ background: 'white', border: '1px solid #E8E8E8', borderRadius: 20, padding: 24, textAlign: 'center', maxWidth: 300, boxShadow: '0 8px 30px rgba(0,0,0,0.1)' }}>
+                  <div style={{ width: 56, height: 56, background: '#FFF4EB', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                    <Lock size={24} color="#F6851B" />
+                  </div>
+                  <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 4 }}>This post is locked</div>
+                  <div style={{ color: '#6A737D', fontSize: 13, marginBottom: 20 }}>
+                    {post.unlock_price > 0 ? `Unlock for ${post.unlock_price} USDC` : 'Subscribe to creator to unlock'}
+                  </div>
 
-        {/* Lock overlay */}
-        {!isUnlocked && !showConfirm && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(10,11,13,0.55)', backdropFilter: 'blur(2px)' }}>
-            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 16, padding: '20px 24px', textAlign: 'center', maxWidth: 260 }}>
-              <img src={creator?.avatar_url} alt="" style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', marginBottom: 10 }} />
-              <div style={{ fontFamily: 'var(--font-jakarta)', fontWeight: 700, fontSize: 15, marginBottom: 4 }}>Locked Content</div>
-              {error && <div style={{ color: 'var(--red)', fontSize: 12, marginBottom: 8 }}>{error}</div>}
-              <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 14 }}>
-                {post.price_usdc > 0 ? `${post.price_usdc} USDC to unlock` : 'Subscribe to view'}
+                  {post.unlock_price > 0 ? (
+                    <button
+                      onClick={() => setShowConfirm(true)}
+                      disabled={unlocking}
+                      className="btn-primary"
+                      style={{ width: '100%', padding: '12px', fontSize: 14 }}
+                    >
+                      <Zap size={16} /> Pay {post.unlock_price} USDC to Unlock
+                    </button>
+                  ) : (
+                    <Link
+                      href={`/creator/${creator?.wallet_address}`}
+                      className="btn-primary"
+                      style={{ display: 'block', textDecoration: 'none', padding: '12px', fontSize: 14 }}
+                    >
+                      Subscribe to Creator
+                    </Link>
+                  )}
+                </div>
               </div>
-              {post.price_usdc > 0 ? (
-                <button onClick={() => setShowConfirm(true)} disabled={unlocking} style={{ padding: '10px 20px', borderRadius: 999, border: 'none', background: unlocking ? 'var(--bg-hover)' : 'var(--gradient-orange)', color: 'white', fontWeight: 700, fontSize: 13, fontFamily: 'var(--font-jakarta)', display: 'flex', alignItems: 'center', gap: 8, width: '100%', justifyContent: 'center' }}>
-                  <Zap size={14} />
-                  {unlocking ? 'Confirming on Solana...' : `Unlock · ${post.price_usdc} USDC`}
-                </button>
-              ) : (
-                <Link href={`/@/${post.creator_wallet}`} style={{ display: 'block', padding: '10px 20px', borderRadius: 999, background: 'var(--gradient-orange)', color: 'white', fontWeight: 700, fontSize: 13, fontFamily: 'var(--font-jakarta)', textAlign: 'center' }}>
-                  Subscribe to Unlock
-                </Link>
-              )}
-            </div>
+            )}
+
+            {/* Confirm Unlock */}
+            {showConfirm && (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(8px)' }}>
+                <div style={{ background: 'white', border: '1px solid #E8E8E8', borderRadius: 20, padding: 24, maxWidth: 280, textAlign: 'center', boxShadow: '0 8px 30px rgba(0,0,0,0.1)' }}>
+                  <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 16 }}>Confirm Unlock</div>
+                  <div style={{ fontSize: 32, fontWeight: 900, color: '#F6851B', marginBottom: 20 }}>{post.unlock_price} USDC</div>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button onClick={() => setShowConfirm(false)} className="btn-secondary" style={{ flex: 1 }}>Cancel</button>
+                    <button onClick={handleUnlock} className="btn-primary" style={{ flex: 1 }}>Pay Now</button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* Actions */}
-      <div style={{ padding: '10px 16px 14px', display: 'flex', alignItems: 'center', gap: 16 }}>
-        <button onClick={() => { setLiked(l => !l); setLikesCount(n => liked ? n - 1 : n + 1); }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: liked ? 'var(--accent)' : 'var(--text-muted)', fontSize: 13, fontFamily: 'var(--font-inter)' }}>
-          <Heart size={16} fill={liked ? 'var(--accent)' : 'none'} /> {likesCount}
+      <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 20, borderTop: '1px solid #F8F8F8' }}>
+        <button onClick={() => { setLiked(!liked); setLikesCount(liked ? likesCount - 1 : likesCount + 1); }} style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: 6, color: liked ? '#D73A49' : '#6A737D', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+          <Heart size={20} fill={liked ? '#D73A49' : 'none'} /> {likesCount}
         </button>
-        <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 13, fontFamily: 'var(--font-inter)' }}>
-          <MessageCircle size={16} /> {post.commentsCount || 0}
+        <button style={{ background: 'none', border: 'none', display: 'flex', alignItems: 'center', gap: 6, color: '#6A737D', fontWeight: 700, fontSize: 14 }}>
+          <MessageCircle size={20} /> {post.comment_count || 0}
         </button>
-        <button style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 13, marginLeft: 'auto', fontFamily: 'var(--font-inter)' }}>
-          <Share2 size={16} />
+        <button style={{ background: 'none', border: 'none', marginLeft: 'auto', color: '#6A737D' }}>
+          <Share2 size={20} />
         </button>
       </div>
+
+      {unlocking && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.7)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#F6851B', zIndex: 10 }}>
+          <div className="skeleton" style={{ width: 64, height: 64, borderRadius: '50%', marginBottom: 12 }}></div>
+          <div style={{ fontWeight: 800 }}>Confirming on Solana...</div>
+        </div>
+      )}
     </article>
   );
 }
