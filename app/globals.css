@@ -1,11 +1,57 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-html, body, #__next {
-  height: 100%;
+:root {
+  --bg-primary: #0a0b0d;
+  --bg-secondary: #0f1114;
+  --bg-card: #161b22;
+  --bg-hover: #1c2330;
+  --bg-elevated: #1a1f2e;
+  --border: #21262d;
+  --border-light: #30363d;
+  --text-primary: #f0f6fc;
+  --text-secondary: #8b949e;
+  --text-muted: #484f58;
+  --accent: #f6851b;
+  --accent-hover: #e2761b;
+  --accent-dim: rgba(246, 133, 27, 0.12);
+  --accent-glow: rgba(246, 133, 27, 0.25);
+  --blue: #037dd6;
+  --blue-dim: rgba(3, 125, 214, 0.12);
+  --green: #3fb950;
+  --green-dim: rgba(63, 185, 80, 0.12);
+  --red: #f85149;
+  --red-dim: rgba(248, 81, 73, 0.12);
+  --gradient-orange: linear-gradient(135deg, #f6851b, #e2761b);
+  --gradient-glow: radial-gradient(ellipse at top, rgba(246,133,27,0.08) 0%, transparent 60%);
 }
+*,*::before,*::after{box-sizing:border-box;}
+html,body{overflow-x:hidden;width:100%;margin:0;padding:0;}
+body{font-family:var(--font-inter),'Inter',sans-serif;background:var(--bg-primary);background-image:var(--gradient-glow);color:var(--text-primary);min-height:100vh;-webkit-font-smoothing:antialiased;}
+h1,h2,h3,h4,h5,h6{font-family:var(--font-jakarta),'Plus Jakarta Sans',sans-serif;margin:0;}
+a{color:inherit;text-decoration:none;}
+button{cursor:pointer;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:var(--bg-primary);}
+::-webkit-scrollbar-thumb{background:var(--border-light);border-radius:2px;}
+input,textarea,select{background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;color:var(--text-primary);font-family:var(--font-inter),'Inter',sans-serif;font-size:14px;padding:12px 16px;outline:none;transition:border-color .15s,box-shadow .15s;width:100%;}
+input:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim);}
+input::placeholder,textarea::placeholder{color:var(--text-muted);}
+@media(max-width:767px){input,textarea,select{font-size:16px!important;}main{padding-bottom:calc(64px + env(safe-area-inset-bottom,12px))!important;}}
+.scroll-x{overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;}
+.scroll-x::-webkit-scrollbar{display:none;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
+.fade-up{animation:fadeUp .35s ease forwards;}
+@keyframes pulseGlow{0%,100%{box-shadow:0 0 4px var(--green);}50%{box-shadow:0 0 12px var(--green),0 0 24px rgba(63,185,80,0.3);}}
+.online-pulse{animation:pulseGlow 2s ease-in-out infinite;}
+@keyframes shimmer{0%{background-position:-200% 0;}100%{background-position:200% 0;}}
+.skeleton{background:linear-gradient(90deg,var(--bg-card) 25%,var(--bg-hover) 50%,var(--bg-card) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:8px;}
+.wallet-adapter-button{background:var(--gradient-orange)!important;font-family:var(--font-jakarta),sans-serif!important;font-weight:700!important;border-radius:999px!important;border:none!important;transition:opacity .15s,transform .15s!important;height:44px!important;}
+.wallet-adapter-button:hover{opacity:.9!important;transform:translateY(-1px)!important;}
+.wallet-adapter-button:not([disabled]):hover{background:var(--gradient-orange)!important;}
+.wallet-adapter-modal-wrapper{background:var(--bg-card)!important;border:1px solid var(--border-light)!important;border-radius:20px!important;}
+.wallet-adapter-modal-title{color:var(--text-primary)!important;}
+.wallet-adapter-modal-list li{background:var(--bg-hover)!important;border-color:var(--border)!important;}
 
-.card {
-  @apply bg-white/5 rounded-xl shadow p-4;
+/* Font fallbacks (loaded via link tag in layout.jsx) */
+:root {
+  --font-jakarta: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
